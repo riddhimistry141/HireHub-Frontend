@@ -1,21 +1,9 @@
-import { useRef, useState } from "react";
-
-import {
-  CheckCircle2,
-  Download,
-  FileText,
-  Trash2,
-  Upload,
-} from "lucide-react";
-
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CheckCircle2, Download, FileText, Trash2, Upload } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,15 +13,56 @@ function Resume() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  const [currentResume, setCurrentResume] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [error, setError] = useState("");
+
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  const currentResume = {
-    name: "Riddhi_Mistry_Resume.pdf",
-    size: "1.8 MB",
-    updated: "2 days ago",
-  };
+  const [error, setError] = useState("");
+
+  // ==================== FETCH CURRENT RESUME ====================
+
+  useEffect(() => {
+    const fetchResume = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await fetch(`${BASE_URL}/resume`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch resume");
+        }
+
+        setCurrentResume(data.data);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResume();
+  }, [BASE_URL, navigate]);
+
+  // ==================== FILE VALIDATION ====================
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -44,12 +73,14 @@ function Resume() {
       return;
     }
 
+    // PDF validation
     if (file.type !== "application/pdf") {
       setError("Please upload a PDF file.");
       event.target.value = "";
       return;
     }
 
+    // 5 MB validation
     if (file.size > 5 * 1024 * 1024) {
       setError("Resume must be smaller than 5 MB.");
       event.target.value = "";
@@ -59,27 +90,139 @@ function Resume() {
     setSelectedFile(file);
   };
 
+  // ==================== UPLOAD RESUME ====================
+
   const handleUpload = async () => {
     if (!selectedFile) {
       setError("Please select a resume first.");
       return;
     }
 
-    setError("");
-    setUploading(true);
+    try {
+      setError("");
+      setUploading(true);
 
-    // Mock upload for now.
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1200)
-    );
+      const token = localStorage.getItem("token");
 
-    setUploading(false);
-    setSelectedFile(null);
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      const formData = new FormData();
+
+      formData.append("resume", selectedFile);
+
+      const response = await fetch(`${BASE_URL}/resume`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to upload resume");
+      }
+
+      // Update current resume immediately
+      setCurrentResume(data.data);
+
+      // Clear selected file
+      setSelectedFile(null);
+
+      // Clear input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setUploading(false);
     }
   };
+ //#=========Download resuma ============
+  const handleDownload = async () => {
+    try {
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            navigate("/login");
+            return;
+        }
+
+        const response = await fetch(
+            `${BASE_URL}/resume/download`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(
+                data.message || "Failed to download resume"
+            );
+        }
+
+        const blob = await response.blob();
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = currentResume.fileName;
+
+        document.body.appendChild(link);
+        link.click();
+
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        setError(error.message);
+    }
+};
+
+ //#=============Delete resuma ==========
+  const handleDelete = async () => {
+  try {
+    setError("");
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    const response = await fetch(`${BASE_URL}/resume`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to remove resume"
+      );
+    }
+
+    setCurrentResume(null);
+  } catch (error) {
+    setError(error.message);
+  }
+};
+
+  // ==================== REMOVE SELECTED FILE ====================
 
   const handleRemoveSelected = () => {
     setSelectedFile(null);
@@ -90,73 +233,112 @@ function Resume() {
     }
   };
 
+  // ==================== FORMAT FILE SIZE ====================
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) {
+      return "Unknown size";
+    }
+
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
+
+  // ==================== FORMAT DATE ====================
+
+  const formatDate = (date) => {
+    if (!date) {
+      return "Unknown date";
+    }
+
+    return new Date(date).toLocaleDateString();
+  };
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Page intro */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Resume
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">Resume</h1>
 
         <p className="mt-1 text-sm text-muted-foreground">
           Manage the resume you use when applying for jobs.
         </p>
       </div>
 
-      {/* Current Resume */}
+      {/* ==================== CURRENT RESUME ==================== */}
+
       <Card>
         <CardHeader>
           <CardTitle>Current Resume</CardTitle>
         </CardHeader>
 
         <CardContent>
-          <div className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <FileText className="size-6" />
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate font-semibold">
-                    {currentResume.name}
-                  </p>
-
-                  <Badge
-                    variant="secondary"
-                    className="text-green-700 dark:text-green-400"
-                  >
-                    Active
-                  </Badge>
+          {loading ? (
+            <div className="flex min-h-24 items-center justify-center">
+              <p className="text-sm text-muted-foreground">Loading resume...</p>
+            </div>
+          ) : currentResume ? (
+            <div className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <FileText className="size-6" />
                 </div>
 
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {currentResume.size} · Updated{" "}
-                  {currentResume.updated}
-                </p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-semibold">
+                      {currentResume.fileName}
+                    </p>
+
+                    <Badge
+                      variant="secondary"
+                      className="text-green-700 dark:text-green-400"
+                    >
+                      Active
+                    </Badge>
+                  </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatFileSize(currentResume.fileSize)} · Updated{" "}
+                    {formatDate(currentResume.updatedAt)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="mr-2 size-4" />
+                  Download
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Remove
+                </Button>
               </div>
             </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <FileText className="size-5 text-muted-foreground" />
+              </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="mr-2 size-4" />
-                Download
-              </Button>
+              <h3 className="mt-4 font-semibold">No resume uploaded</h3>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 className="mr-2 size-4" />
-                Remove
-              </Button>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Upload your resume below to use it when applying for jobs.
+              </p>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Upload */}
+      {/* ==================== UPLOAD ==================== */}
+
       <Card>
         <CardHeader>
           <CardTitle>Upload New Resume</CardTitle>
@@ -171,9 +353,7 @@ function Resume() {
               <Upload className="size-6" />
             </div>
 
-            <h3 className="mt-4 font-semibold">
-              Upload your resume
-            </h3>
+            <h3 className="mt-4 font-semibold">Upload your resume</h3>
 
             <p className="mt-1 text-sm text-muted-foreground">
               Click to browse and select your resume
@@ -193,7 +373,8 @@ function Resume() {
             />
           </label>
 
-          {/* Selected file */}
+          {/* ==================== SELECTED FILE ==================== */}
+
           {selectedFile && (
             <div className="flex flex-col gap-4 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
@@ -222,11 +403,7 @@ function Resume() {
                   Remove
                 </Button>
 
-                <Button
-                  size="sm"
-                  onClick={handleUpload}
-                  disabled={uploading}
-                >
+                <Button size="sm" onClick={handleUpload} disabled={uploading}>
                   {uploading ? (
                     <>
                       <span className="mr-2 size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -243,16 +420,16 @@ function Resume() {
             </div>
           )}
 
-          {/* Error */}
+          {/* ==================== ERROR ==================== */}
+
           {error && (
-            <p className="text-sm font-medium text-destructive">
-              {error}
-            </p>
+            <p className="text-sm font-medium text-destructive">{error}</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Resume tips */}
+      {/* ==================== RESUME TIPS ==================== */}
+
       <Card>
         <CardHeader>
           <CardTitle>Resume Tips</CardTitle>
@@ -264,13 +441,10 @@ function Resume() {
               <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400" />
 
               <div>
-                <p className="text-sm font-medium">
-                  Keep it updated
-                </p>
+                <p className="text-sm font-medium">Keep it updated</p>
 
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Keep your skills, projects and experience
-                  up to date.
+                  Keep your skills, projects and experience up to date.
                 </p>
               </div>
             </div>
@@ -279,13 +453,11 @@ function Resume() {
               <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400" />
 
               <div>
-                <p className="text-sm font-medium">
-                  Keep it concise
-                </p>
+                <p className="text-sm font-medium">Keep it concise</p>
 
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Highlight the most relevant experience
-                  and skills for your target roles.
+                  Highlight the most relevant experience and skills for your
+                  target roles.
                 </p>
               </div>
             </div>
@@ -294,9 +466,7 @@ function Resume() {
               <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400" />
 
               <div>
-                <p className="text-sm font-medium">
-                  Use a professional format
-                </p>
+                <p className="text-sm font-medium">Use a professional format</p>
 
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Use a clean and readable resume layout.
@@ -308,13 +478,11 @@ function Resume() {
               <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400" />
 
               <div>
-                <p className="text-sm font-medium">
-                  Match the job
-                </p>
+                <p className="text-sm font-medium">Match the job</p>
 
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Highlight skills that are relevant to the
-                  position you're applying for.
+                  Highlight skills that are relevant to the position you're
+                  applying for.
                 </p>
               </div>
             </div>
@@ -322,12 +490,10 @@ function Resume() {
         </CardContent>
       </Card>
 
-      {/* Bottom action */}
+      {/* ==================== BOTTOM ACTION ==================== */}
+
       <div className="flex justify-end">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/profile")}
-        >
+        <Button variant="outline" onClick={() => navigate("/profile")}>
           Back to Profile
         </Button>
       </div>

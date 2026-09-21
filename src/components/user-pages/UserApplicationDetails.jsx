@@ -9,102 +9,43 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-const applications = {
-  "1": {
-    id: "1",
-    jobTitle: "Frontend Developer",
-    company: "ABC Technologies",
-    location: "Ahmedabad, Gujarat",
-    jobType: "ONSITE",
-    experience: "1-2 years",
-    salary: "₹4 - ₹6 LPA",
-    status: "APPLIED",
-    appliedDate: "September 4, 2026",
-    resume: "Riddhi_Mistry_Resume.pdf",
-    resumeUpdated: "2 days ago",
-    coverLetter:
-      "I am excited to apply for the Frontend Developer position. I have experience working with React, JavaScript, Tailwind CSS and modern frontend development practices.",
-  },
-
-  "2": {
-    id: "2",
-    jobTitle: "React Developer",
-    company: "XYZ Technologies",
-    location: "Surat, Gujarat",
-    jobType: "HYBRID",
-    experience: "1-2 years",
-    salary: "₹5 - ₹7 LPA",
-    status: "SHORTLISTED",
-    appliedDate: "September 1, 2026",
-    resume: "Riddhi_Mistry_Resume.pdf",
-    resumeUpdated: "5 days ago",
-    coverLetter:
-      "I am interested in the React Developer position and believe my frontend development experience would allow me to contribute effectively to your team.",
-  },
-
-  "3": {
-    id: "3",
-    jobTitle: "Node.js Developer",
-    company: "Tech Company",
-    location: "Remote",
-    jobType: "REMOTE",
-    experience: "2-3 years",
-    salary: "₹6 - ₹9 LPA",
-    status: "REVIEWING",
-    appliedDate: "August 29, 2026",
-    resume: "Riddhi_Mistry_Resume.pdf",
-    resumeUpdated: "1 week ago",
-    coverLetter:
-      "I am interested in joining your backend development team and would love the opportunity to work with Node.js and modern backend technologies.",
-  },
-};
 
 const timelineSteps = [
   {
     key: "APPLIED",
     title: "Application Submitted",
-    description:
-      "Your application has been successfully submitted.",
+    description: "Your application has been successfully submitted.",
   },
 
   {
     key: "REVIEWING",
     title: "Application Under Review",
-    description:
-      "The recruiter is currently reviewing your application.",
+    description: "The recruiter is currently reviewing your application.",
   },
 
   {
     key: "SHORTLISTED",
     title: "Shortlisted",
-    description:
-      "Your application has been shortlisted for the next stage.",
+    description: "Your application has been shortlisted for the next stage.",
   },
 
   {
     key: "INTERVIEW",
     title: "Interview",
-    description:
-      "You have been selected for an interview.",
+    description: "You have been selected for an interview.",
   },
 
   {
     key: "HIRED",
     title: "Hired",
-    description:
-      "Congratulations! You have been selected for the position.",
+    description: "Congratulations! You have been selected for the position.",
   },
 ];
 
@@ -155,11 +96,90 @@ function getStatusClasses(status) {
 
 function UserApplicationDetails() {
   const navigate = useNavigate();
-  const { applicationId } = useParams();
+  const { id } = useParams();
 
-  const application = applications[applicationId];
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  if (!application) {
+  //const application = applications[applicationId];
+  const [application, setApplication] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  useEffect(() => {
+    const fetchApplication = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await fetch(`${BASE_URL}/applications/${id}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch application");
+        }
+
+        setApplication(data.data);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplication();
+  }, [BASE_URL, id, navigate]);
+
+  const handleWithdraw = async () => {
+    try {
+      setWithdrawing(true);
+      setError("");
+
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${BASE_URL}/applications/${id}/withdraw`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to withdraw application");
+      }
+
+      setApplication(data.data);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading application...</p>
+      </div>
+    );
+  }
+
+  if (error || !application) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
@@ -168,18 +188,13 @@ function UserApplicationDetails() {
               <FileText className="size-5 text-muted-foreground" />
             </div>
 
-            <h2 className="text-lg font-semibold">
-              Application not found
-            </h2>
+            <h2 className="text-lg font-semibold">Application not found</h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              The application you're looking for doesn't exist.
+              {error || "The application you're looking for doesn't exist."}
             </p>
 
-            <Button
-              className="mt-5"
-              onClick={() => navigate("/applications")}
-            >
+            <Button className="mt-5" onClick={() => navigate("/applications")}>
               <ArrowLeft className="mr-2 size-4" />
               Back to Applications
             </Button>
@@ -214,22 +229,23 @@ function UserApplicationDetails() {
 
               <div className="min-w-0">
                 <h1 className="text-2xl font-bold tracking-tight">
-                  {application.jobTitle}
+                  {application.job.title}
                 </h1>
 
                 <p className="mt-1 font-medium text-muted-foreground">
-                  {application.company}
+                  {application.job.company.name}
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <MapPin className="size-4" />
-                    {application.location}
+                    {application.job.location}
                   </span>
 
                   <span className="flex items-center gap-1.5">
                     <CalendarDays className="size-4" />
-                    Applied {application.appliedDate}
+                    Applied{" "}
+                    {new Date(application.createdAt).toLocaleDateString()}{" "}
                   </span>
                 </div>
               </div>
@@ -257,23 +273,16 @@ function UserApplicationDetails() {
             <CardContent>
               <div className="space-y-0">
                 {timelineSteps.map((step, index) => {
-                  const completed =
-                    index <= currentStep;
+                  const completed = index <= currentStep;
 
-                  const active =
-                    index === currentStep;
+                  const active = index === currentStep;
 
                   return (
-                    <div
-                      key={step.key}
-                      className="relative flex gap-4"
-                    >
+                    <div key={step.key} className="relative flex gap-4">
                       {index !== timelineSteps.length - 1 && (
                         <div
                           className={`absolute left-[11px] top-7 h-[calc(100%-8px)] w-px ${
-                            index < currentStep
-                              ? "bg-primary"
-                              : "bg-border"
+                            index < currentStep ? "bg-primary" : "bg-border"
                           }`}
                         />
                       )}
@@ -285,9 +294,7 @@ function UserApplicationDetails() {
                             : "border-muted-foreground/30 bg-background"
                         }`}
                       >
-                        {completed && (
-                          <CheckCircle2 className="size-4" />
-                        )}
+                        {completed && <CheckCircle2 className="size-4" />}
                       </div>
 
                       <div className="pb-8">
@@ -303,10 +310,7 @@ function UserApplicationDetails() {
                           </h3>
 
                           {active && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs"
-                            >
+                            <Badge variant="secondary" className="text-xs">
                               Current
                             </Badge>
                           )}
@@ -337,13 +341,23 @@ function UserApplicationDetails() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="truncate font-medium">
-                      {application.resume}
-                    </p>
+                    {/*<p className="truncate font-medium">
+                       {application.resume} */}
+                      <p className="font-medium">
+                        {application.resumeUrl
+                          ? "Submitted resume"
+                          : "No resume attached"}
+                      </p>
 
-                    <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
+                        Resume upload will be available when resume storage is
+                        connected.
+                      </p>
+                    {/* </p> */}
+
+                    {/* <p className="text-xs text-muted-foreground">
                       Updated {application.resumeUpdated}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
 
@@ -389,12 +403,10 @@ function UserApplicationDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Location
-                  </p>
+                  <p className="text-xs text-muted-foreground">Location</p>
 
                   <p className="mt-1 text-sm font-medium">
-                    {application.location}
+                    {application.job.location}
                   </p>
                 </div>
               </div>
@@ -405,12 +417,10 @@ function UserApplicationDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Job Type
-                  </p>
+                  <p className="text-xs text-muted-foreground">Job Type</p>
 
                   <p className="mt-1 text-sm font-medium">
-                    {application.jobType}
+                    {application.job.jobType}
                   </p>
                 </div>
               </div>
@@ -421,12 +431,11 @@ function UserApplicationDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Experience
-                  </p>
+                  <p className="text-xs text-muted-foreground">Experience</p>
 
                   <p className="mt-1 text-sm font-medium">
-                    {application.experience}
+                    {application.job.experience?.experienceName ||
+                      "Not specified"}{" "}
                   </p>
                 </div>
               </div>
@@ -437,12 +446,10 @@ function UserApplicationDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Salary
-                  </p>
+                  <p className="text-xs text-muted-foreground">Salary</p>
 
                   <p className="mt-1 text-sm font-medium">
-                    {application.salary}
+                    {application.job.salary || "Not specified"}
                   </p>
                 </div>
               </div>
@@ -458,23 +465,25 @@ function UserApplicationDetails() {
             <CardContent className="space-y-3">
               <Button
                 className="w-full"
-                onClick={() =>
-                  navigate(`/jobs/${application.id}`)
-                }
+                onClick={() => navigate(`/jobs/${application.job.id}`)}
               >
                 View Job
               </Button>
 
-              {application.status !== "REJECTED" &&
-                application.status !== "HIRED" && (
-                  <Button
-                    variant="outline"
-                    className="w-full text-destructive hover:text-destructive"
-                  >
-                    <XCircle className="mr-2 size-4" />
-                    Withdraw Application
-                  </Button>
-                )}
+              {["APPLIED", "REVIEWING", "SHORTLISTED"].includes(
+                application.status,
+              ) && (
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={handleWithdraw}
+                  disabled={withdrawing}
+                >
+                  <XCircle className="mr-2 size-4" />
+
+                  {withdrawing ? "Withdrawing..." : "Withdraw Application"}
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>

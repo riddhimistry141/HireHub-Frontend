@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   CalendarDays,
@@ -12,12 +12,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,49 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const applications = [
-  {
-    id: "1",
-    jobTitle: "Frontend Developer",
-    company: "ABC Technologies",
-    location: "Ahmedabad, Gujarat",
-    appliedDate: "2 days ago",
-    status: "APPLIED",
-  },
-  {
-    id: "2",
-    jobTitle: "React Developer",
-    company: "XYZ Technologies",
-    location: "Surat, Gujarat",
-    appliedDate: "5 days ago",
-    status: "SHORTLISTED",
-  },
-  {
-    id: "3",
-    jobTitle: "Node.js Developer",
-    company: "Tech Company",
-    location: "Remote",
-    appliedDate: "1 week ago",
-    status: "REVIEWING",
-  },
-  {
-    id: "4",
-    jobTitle: "Full Stack Developer",
-    company: "Wappozo Technologies",
-    location: "Surat, Gujarat",
-    appliedDate: "2 weeks ago",
-    status: "INTERVIEW",
-  },
-  {
-    id: "5",
-    jobTitle: "Junior React Developer",
-    company: "Digital Solutions",
-    location: "Vadodara, Gujarat",
-    appliedDate: "3 weeks ago",
-    status: "REJECTED",
-  },
-];
 
 function getStatusLabel(status) {
   const labels = {
@@ -106,6 +58,9 @@ function getStatusClasses(status) {
 
     HIRED:
       "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300",
+    Withdrawn:
+      "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300",
+
   };
 
   return classes[status] || "";
@@ -113,47 +68,109 @@ function getStatusClasses(status) {
 
 function UserApplications() {
   const navigate = useNavigate();
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
 
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [applications, setApplications] = useState([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await fetch(`${BASE_URL}/applications/my`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch applications");
+        }
+
+        setApplications(data.data || []);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplications();
+  }, [BASE_URL, navigate]);
 
   const filteredApplications = useMemo(() => {
     return applications.filter((application) => {
       const searchText = search.toLowerCase();
 
       const matchesSearch =
-        application.jobTitle.toLowerCase().includes(searchText) ||
-        application.company.toLowerCase().includes(searchText);
+        application.job.title.toLowerCase().includes(searchText) ||
+        application.job.company.name.toLowerCase().includes(searchText);
 
       const matchesStatus =
-        statusFilter === "ALL" ||
-        application.status === statusFilter;
+        statusFilter === "ALL" || application.status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter]);
+  }, [applications,search, statusFilter]);
 
   const totalApplications = applications.length;
 
   const reviewingCount = applications.filter(
-    (item) => item.status === "REVIEWING"
+    (item) => item.status === "REVIEWING",
   ).length;
 
   const shortlistedCount = applications.filter(
-    (item) => item.status === "SHORTLISTED"
+    (item) => item.status === "SHORTLISTED",
   ).length;
 
   const interviewCount = applications.filter(
-    (item) => item.status === "INTERVIEW"
+    (item) => item.status === "INTERVIEW",
   ).length;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading applications...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-14 text-center">
+          <h3 className="font-semibold">Failed to load applications</h3>
+
+          <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* ================= PAGE HEADER ================= */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          My Applications
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">My Applications</h1>
 
         <p className="mt-1 text-sm text-muted-foreground">
           Track and manage your job applications.
@@ -175,9 +192,7 @@ function UserApplications() {
           </CardHeader>
 
           <CardContent>
-            <div className="text-2xl font-bold">
-              {totalApplications}
-            </div>
+            <div className="text-2xl font-bold">{totalApplications}</div>
 
             <p className="mt-1 text-xs text-muted-foreground">
               All applications
@@ -188,9 +203,7 @@ function UserApplications() {
         {/* Reviewing */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Under Review
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Under Review</CardTitle>
 
             <div className="flex size-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
               <Clock3 className="size-5" />
@@ -198,22 +211,16 @@ function UserApplications() {
           </CardHeader>
 
           <CardContent>
-            <div className="text-2xl font-bold">
-              {reviewingCount}
-            </div>
+            <div className="text-2xl font-bold">{reviewingCount}</div>
 
-            <p className="mt-1 text-xs text-muted-foreground">
-              Being reviewed
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Being reviewed</p>
           </CardContent>
         </Card>
 
         {/* Shortlisted */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Shortlisted
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Shortlisted</CardTitle>
 
             <div className="flex size-10 items-center justify-center rounded-lg bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400">
               <CheckCircle2 className="size-5" />
@@ -221,9 +228,7 @@ function UserApplications() {
           </CardHeader>
 
           <CardContent>
-            <div className="text-2xl font-bold">
-              {shortlistedCount}
-            </div>
+            <div className="text-2xl font-bold">{shortlistedCount}</div>
 
             <p className="mt-1 text-xs text-muted-foreground">
               Applications shortlisted
@@ -234,9 +239,7 @@ function UserApplications() {
         {/* Interviews */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Interviews
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Interviews</CardTitle>
 
             <div className="flex size-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400">
               <Video className="size-5" />
@@ -244,9 +247,7 @@ function UserApplications() {
           </CardHeader>
 
           <CardContent>
-            <div className="text-2xl font-bold">
-              {interviewCount}
-            </div>
+            <div className="text-2xl font-bold">{interviewCount}</div>
 
             <p className="mt-1 text-xs text-muted-foreground">
               Interview stage
@@ -265,47 +266,34 @@ function UserApplications() {
 
               <Input
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search by job title or company..."
                 className="pl-9"
               />
             </div>
 
             {/* Status */}
-            <Select
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-            >
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="ALL">
-                  All Applications
-                </SelectItem>
+                <SelectItem value="ALL">All Applications</SelectItem>
 
-                <SelectItem value="APPLIED">
-                  Applied
-                </SelectItem>
+                <SelectItem value="APPLIED">Applied</SelectItem>
 
-                <SelectItem value="REVIEWING">
-                  Under Review
-                </SelectItem>
+                <SelectItem value="REVIEWING">Under Review</SelectItem>
 
-                <SelectItem value="SHORTLISTED">
-                  Shortlisted
-                </SelectItem>
+                <SelectItem value="SHORTLISTED">Shortlisted</SelectItem>
 
-                <SelectItem value="INTERVIEW">
-                  Interview
-                </SelectItem>
+                <SelectItem value="INTERVIEW">Interview</SelectItem>
 
-                <SelectItem value="REJECTED">
-                  Rejected
-                </SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+
+                <SelectItem value="HIRED">Hired</SelectItem>
+
+                <SelectItem value="WITHDRAWN">Withdrawn</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -316,13 +304,11 @@ function UserApplications() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold">
-              Applications
-            </h2>
+            <h2 className="font-semibold">Applications</h2>
 
             <p className="text-sm text-muted-foreground">
-              Showing {filteredApplications.length} of{" "}
-              {applications.length} applications
+              Showing {filteredApplications.length} of {applications.length}{" "}
+              applications
             </p>
           </div>
         </div>
@@ -335,13 +321,11 @@ function UserApplications() {
                 <Search className="size-5 text-muted-foreground" />
               </div>
 
-              <h3 className="font-semibold">
-                No applications found
-              </h3>
+              <h3 className="font-semibold">No applications found</h3>
 
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                We couldn't find any applications matching
-                your search or selected filter.
+                We couldn't find any applications matching your search or
+                selected filter.
               </p>
 
               <Button
@@ -373,23 +357,24 @@ function UserApplications() {
                     <div className="min-w-0 space-y-2">
                       <div>
                         <h3 className="truncate font-semibold">
-                          {application.jobTitle}
+                          {application.job.title}
                         </h3>
 
                         <p className="text-sm text-muted-foreground">
-                          {application.company}
+                          {application.job.company.name}
                         </p>
                       </div>
 
                       <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1.5">
                           <MapPin className="size-3.5" />
-                          {application.location}
+                          {application.job.location}
                         </span>
 
                         <span className="flex items-center gap-1.5">
                           <CalendarDays className="size-3.5" />
-                          Applied {application.appliedDate}
+                          Applied{" "}
+                          {new Date(application.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -399,9 +384,7 @@ function UserApplications() {
                   <div className="flex flex-wrap items-center gap-3 lg:justify-end">
                     <Badge
                       variant="outline"
-                      className={getStatusClasses(
-                        application.status
-                      )}
+                      className={getStatusClasses(application.status)}
                     >
                       {getStatusLabel(application.status)}
                     </Badge>
@@ -410,9 +393,7 @@ function UserApplications() {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        navigate(
-                          `/applications/${application.id}`
-                        )
+                        navigate(`/applications/${application.id}`)
                       }
                     >
                       View Details

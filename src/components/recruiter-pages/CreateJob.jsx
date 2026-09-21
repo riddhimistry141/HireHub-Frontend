@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 
 import {
   ArrowLeft,
@@ -47,6 +48,7 @@ function CreateJob() {
     requirements: "",
     benefits: "",
     applicationDeadline: "",
+    totalSlots: "",
   });
 
   const [experiences, setExperiences] = useState([]);
@@ -84,6 +86,17 @@ function CreateJob() {
 
     fetchExperiences();
   }, [BASE_URL]);
+
+  //date clsoing
+  const getTodayDate = () => {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -146,10 +159,6 @@ function CreateJob() {
       newErrors.salary = "salary is required.";
     }
 
-    
-
-   
-
     if (!formData.skills.trim()) {
       newErrors.skills = "At least one skill is required.";
     }
@@ -168,6 +177,15 @@ function CreateJob() {
 
     if (!formData.applicationDeadline) {
       newErrors.applicationDeadline = "Application deadline is required.";
+    }
+
+    //total slot validation
+    if (
+      !Number.isInteger(Number(formData.totalSlots)) ||
+      Number(formData.totalSlots) <= 0
+    ) {
+      toast.error("Total slots must be a positive number");
+      return;
     }
 
     setErrors(newErrors);
@@ -214,6 +232,15 @@ function CreateJob() {
         return;
       }
 
+      if (formData.applicationDeadline) {
+        const today = getTodayDate();
+
+        if (formData.applicationDeadline < today) {
+          toast.error("Application deadline cannot be before today");
+          return;
+        }
+      }
+
       const token = localStorage.getItem("token");
 
       if (!token) {
@@ -245,7 +272,10 @@ function CreateJob() {
 
         applicationDeadline: formData.applicationDeadline,
 
-        isActive: type === "PUBLISH",
+        totalSlots: Number(formData.totalSlots),
+
+        //isActive: type === "PUBLISH",
+        status: type === "PUBLISH" ? "ACTIVE" : "DRAFT",
       };
 
       const response = await fetch(`${BASE_URL}/jobs`, {
@@ -379,6 +409,30 @@ function CreateJob() {
               )}
             </div>
 
+            {/* total slot of job to apply */}
+            <div className="space-y-2">
+              <Label htmlFor="totalSlots">Total Slots</Label>
+
+              <Input
+                id="totalSlots"
+                type="number"
+                min="1"
+                placeholder="e.g. 10"
+                value={formData.totalSlots}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    totalSlots: e.target.value,
+                  })
+                }
+              />
+
+              {errors.totalSlots && (
+                <p className="text-sm text-destructive">{errors.totalSlots}</p>
+              )}
+
+            </div>
+
             <div className="space-y-2">
               <Label>Experience</Label>
 
@@ -425,24 +479,22 @@ function CreateJob() {
           <div className="space-y-2">
             <Label>Salary</Label>
 
-              <div className="relative">
-                <IndianRupee className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative">
+              <IndianRupee className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
-                <Input
-                  name="salary"
-                  type="number"
-                  value={formData.salary}
-                  onChange={handleChange}
-                  placeholder="salary"
-                  className="pl-9"
-                  aria-invalid={!!errors.salary}
-                />
-              </div>
+              <Input
+                name="salary"
+                type="number"
+                value={formData.salary}
+                onChange={handleChange}
+                placeholder="salary"
+                className="pl-9"
+                aria-invalid={!!errors.salary}
+              />
+            </div>
 
-            {(errors.salary) && (
-              <p className="text-sm text-destructive">
-                {errors.salary}
-              </p>
+            {errors.salary && (
+              <p className="text-sm text-destructive">{errors.salary}</p>
             )}
 
             <p className="text-xs text-muted-foreground">
@@ -627,6 +679,7 @@ Performance bonuses`}
             id="applicationDeadline"
             name="applicationDeadline"
             type="date"
+            min={getTodayDate()}
             value={formData.applicationDeadline}
             onChange={handleChange}
             aria-invalid={!!errors.applicationDeadline}

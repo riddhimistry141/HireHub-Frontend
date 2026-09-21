@@ -1,5 +1,5 @@
 import { NavLink, /* useNavigate */ } from "react-router-dom";
-import { Home, BriefcaseBusiness } from "lucide-react";
+import { Home, BriefcaseBusiness, Bookmark } from "lucide-react";
 
 import {
   Sidebar,
@@ -63,6 +63,13 @@ function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
 
+                  <SidebarMenuItem>
+                    <SidebarMenuButton render={<NavLink to="/saved-jobs" />}>
+                      <Bookmark className="size-4" />
+                      <span>Saved Job</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
                   {/* <SidebarMenuItem>
                     <SidebarMenuButton render={<NavLink to="/applications" />}>
                       My Applications
@@ -95,6 +102,18 @@ function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton render={<NavLink to="/recruiter/jobs" />}>
                       MyJob
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  <SidebarMenuItem>
+                    <SidebarMenuButton render={<NavLink to="/recruiter/applicants" />}>
+                      Applicants
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  
+                  <SidebarMenuItem>
+                    <SidebarMenuButton render={<NavLink to="/recruiter/interviews" />}>
+                      Interviews
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </>

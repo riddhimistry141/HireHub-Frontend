@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
@@ -60,23 +59,24 @@ function EditJob() {
         setServerError("");
 
         const [jobResponse, experienceResponse] = await Promise.all([
-          fetch(`${BASE_URL}/jobs/${jobId}`),
+          fetch(`${BASE_URL}/jobs/recruiter/${jobId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
 
           fetch(`${BASE_URL}/experiences`),
         ]);
-
         const jobData = await jobResponse.json();
         const experienceData = await experienceResponse.json();
 
         if (!jobResponse.ok) {
-          throw new Error(
-            jobData.message || "Failed to fetch job details"
-          );
+          throw new Error(jobData.message || "Failed to fetch job details");
         }
 
         if (!experienceResponse.ok) {
           throw new Error(
-            experienceData.message || "Failed to fetch experiences"
+            experienceData.message || "Failed to fetch experiences",
           );
         }
 
@@ -88,9 +88,7 @@ function EditJob() {
           jobType: job.jobType || "",
           experience: job.experience?.experienceName || "",
           salary: job.salary || "",
-          skills: Array.isArray(job.skills)
-            ? job.skills.join(", ")
-            : "",
+          skills: Array.isArray(job.skills) ? job.skills.join(", ") : "",
           description: job.description || "",
           responsibilities: Array.isArray(job.responsibilities)
             ? job.responsibilities.join("\n")
@@ -98,13 +96,9 @@ function EditJob() {
           requirements: Array.isArray(job.requirements)
             ? job.requirements.join("\n")
             : "",
-          benefits: Array.isArray(job.benefits)
-            ? job.benefits.join("\n")
-            : "",
+          benefits: Array.isArray(job.benefits) ? job.benefits.join("\n") : "",
           applicationDeadline: job.applicationDeadline
-            ? new Date(job.applicationDeadline)
-                .toISOString()
-                .split("T")[0]
+            ? new Date(job.applicationDeadline).toISOString().split("T")[0]
             : "",
           isActive: job.isActive ?? true,
         });
@@ -112,9 +106,7 @@ function EditJob() {
         setExperiences(experienceData.data || []);
       } catch (error) {
         console.error("Fetch edit job error:", error);
-        setServerError(
-          error.message || "Failed to load job details"
-        );
+        setServerError(error.message || "Failed to load job details");
       } finally {
         setLoading(false);
       }
@@ -197,8 +189,7 @@ function EditJob() {
     }
 
     if (!formData.responsibilities.trim()) {
-      newErrors.responsibilities =
-        "Responsibilities are required.";
+      newErrors.responsibilities = "Responsibilities are required.";
     }
 
     if (!formData.requirements.trim()) {
@@ -206,10 +197,20 @@ function EditJob() {
     }
 
     if (!formData.applicationDeadline) {
-      newErrors.applicationDeadline =
-        "Application deadline is required.";
+      toast.error("Application deadline is required");
+      return;
     }
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const deadline = new Date(formData.applicationDeadline);
+    deadline.setHours(0, 0, 0, 0);
+
+    if (deadline <= today) {
+      toast.error("Application deadline must be a future date");
+      return;
+    }
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
@@ -227,8 +228,7 @@ function EditJob() {
       setSaving(true);
 
       const selectedExperience = experiences.find(
-        (experience) =>
-          experience.experienceName === formData.experience
+        (experience) => experience.experienceName === formData.experience,
       );
 
       if (!selectedExperience) {
@@ -248,42 +248,30 @@ function EditJob() {
 
         skills: convertCommaSeparatedToArray(formData.skills),
 
-        responsibilities: convertLinesToArray(
-          formData.responsibilities
-        ),
+        responsibilities: convertLinesToArray(formData.responsibilities),
 
-        requirements: convertLinesToArray(
-          formData.requirements
-        ),
+        requirements: convertLinesToArray(formData.requirements),
 
-        benefits: convertLinesToArray(
-          formData.benefits
-        ),
+        benefits: convertLinesToArray(formData.benefits),
 
-        applicationDeadline:
-          formData.applicationDeadline,
+        applicationDeadline: formData.applicationDeadline,
 
         isActive: formData.isActive,
       };
 
-      const response = await fetch(
-        `${BASE_URL}/jobs/${jobId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch(`${BASE_URL}/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to update job"
-        );
+        throw new Error(data.message || "Failed to update job");
       }
 
       toast.success("Job updated successfully.");
@@ -292,9 +280,7 @@ function EditJob() {
     } catch (error) {
       console.error("Update job error:", error);
 
-      toast.error(
-        error.message || "Failed to update job."
-      );
+      toast.error(error.message || "Failed to update job.");
     } finally {
       setSaving(false);
     }
@@ -314,10 +300,7 @@ function EditJob() {
   if (serverError) {
     return (
       <div className="space-y-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/recruiter/jobs")}
-        >
+        <Button variant="ghost" onClick={() => navigate("/recruiter/jobs")}>
           <ArrowLeft className="mr-2 size-4" />
           Back to My Jobs
         </Button>
@@ -329,9 +312,7 @@ function EditJob() {
                 Unable to load job
               </h2>
 
-              <p className="mt-2 text-muted-foreground">
-                {serverError}
-              </p>
+              <p className="mt-2 text-muted-foreground">{serverError}</p>
 
               <Button
                 className="mt-5"
@@ -360,9 +341,7 @@ function EditJob() {
             Back to My Jobs
           </Button>
 
-          <h1 className="text-2xl font-bold text-foreground">
-            Edit Job
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground">Edit Job</h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
             Update your job posting details.
@@ -378,10 +357,7 @@ function EditJob() {
             Cancel
           </Button>
 
-          <Button
-            onClick={handleSubmit}
-            disabled={saving}
-          >
+          <Button onClick={handleSubmit} disabled={saving}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -410,9 +386,7 @@ function EditJob() {
           <CardContent className="space-y-6">
             {/* Job Title */}
             <div className="space-y-2">
-              <Label htmlFor="title">
-                Job Title
-              </Label>
+              <Label htmlFor="title">Job Title</Label>
 
               <Input
                 id="title"
@@ -424,17 +398,13 @@ function EditJob() {
               />
 
               {errors.title && (
-                <p className="text-sm text-destructive">
-                  {errors.title}
-                </p>
+                <p className="text-sm text-destructive">{errors.title}</p>
               )}
             </div>
 
             {/* Location */}
             <div className="space-y-2">
-              <Label htmlFor="location">
-                Location
-              </Label>
+              <Label htmlFor="location">Location</Label>
 
               <Input
                 id="location"
@@ -446,9 +416,7 @@ function EditJob() {
               />
 
               {errors.location && (
-                <p className="text-sm text-destructive">
-                  {errors.location}
-                </p>
+                <p className="text-sm text-destructive">{errors.location}</p>
               )}
             </div>
 
@@ -460,37 +428,24 @@ function EditJob() {
                 <Select
                   value={formData.jobType}
                   onValueChange={(value) =>
-                    handleSelectChange(
-                      "jobType",
-                      value
-                    )
+                    handleSelectChange("jobType", value)
                   }
                 >
-                  <SelectTrigger
-                    aria-invalid={!!errors.jobType}
-                  >
+                  <SelectTrigger aria-invalid={!!errors.jobType}>
                     <SelectValue placeholder="Select job type" />
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="ONSITE">
-                      Onsite
-                    </SelectItem>
+                    <SelectItem value="ONSITE">Onsite</SelectItem>
 
-                    <SelectItem value="REMOTE">
-                      Remote
-                    </SelectItem>
+                    <SelectItem value="REMOTE">Remote</SelectItem>
 
-                    <SelectItem value="HYBRID">
-                      Hybrid
-                    </SelectItem>
+                    <SelectItem value="HYBRID">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
 
                 {errors.jobType && (
-                  <p className="text-sm text-destructive">
-                    {errors.jobType}
-                  </p>
+                  <p className="text-sm text-destructive">{errors.jobType}</p>
                 )}
               </div>
 
@@ -500,15 +455,10 @@ function EditJob() {
                 <Select
                   value={formData.experience}
                   onValueChange={(value) =>
-                    handleSelectChange(
-                      "experience",
-                      value
-                    )
+                    handleSelectChange("experience", value)
                   }
                 >
-                  <SelectTrigger
-                    aria-invalid={!!errors.experience}
-                  >
+                  <SelectTrigger aria-invalid={!!errors.experience}>
                     <SelectValue placeholder="Select experience" />
                   </SelectTrigger>
 
@@ -534,9 +484,7 @@ function EditJob() {
 
             {/* Salary */}
             <div className="space-y-2">
-              <Label htmlFor="salary">
-                Salary
-              </Label>
+              <Label htmlFor="salary">Salary</Label>
 
               <Input
                 id="salary"
@@ -552,17 +500,13 @@ function EditJob() {
               </p>
 
               {errors.salary && (
-                <p className="text-sm text-destructive">
-                  {errors.salary}
-                </p>
+                <p className="text-sm text-destructive">{errors.salary}</p>
               )}
             </div>
 
             {/* Skills */}
             <div className="space-y-2">
-              <Label htmlFor="skills">
-                Skills
-              </Label>
+              <Label htmlFor="skills">Skills</Label>
 
               <Input
                 id="skills"
@@ -578,9 +522,7 @@ function EditJob() {
               </p>
 
               {errors.skills && (
-                <p className="text-sm text-destructive">
-                  {errors.skills}
-                </p>
+                <p className="text-sm text-destructive">{errors.skills}</p>
               )}
             </div>
           </CardContent>
@@ -591,17 +533,14 @@ function EditJob() {
           <CardHeader>
             <CardTitle>Job Description</CardTitle>
             <CardDescription>
-              Explain the role and what the selected candidate
-              will do.
+              Explain the role and what the selected candidate will do.
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">
-                Description
-              </Label>
+              <Label htmlFor="description">Description</Label>
 
               <Textarea
                 id="description"
@@ -614,17 +553,13 @@ function EditJob() {
               />
 
               {errors.description && (
-                <p className="text-sm text-destructive">
-                  {errors.description}
-                </p>
+                <p className="text-sm text-destructive">{errors.description}</p>
               )}
             </div>
 
             {/* Responsibilities */}
             <div className="space-y-2">
-              <Label htmlFor="responsibilities">
-                Responsibilities
-              </Label>
+              <Label htmlFor="responsibilities">Responsibilities</Label>
 
               <Textarea
                 id="responsibilities"
@@ -651,9 +586,7 @@ function EditJob() {
 
             {/* Requirements */}
             <div className="space-y-2">
-              <Label htmlFor="requirements">
-                Requirements
-              </Label>
+              <Label htmlFor="requirements">Requirements</Label>
 
               <Textarea
                 id="requirements"
@@ -680,9 +613,7 @@ function EditJob() {
 
             {/* Benefits */}
             <div className="space-y-2">
-              <Label htmlFor="benefits">
-                Benefits
-              </Label>
+              <Label htmlFor="benefits">Benefits</Label>
 
               <Textarea
                 id="benefits"
@@ -714,9 +645,7 @@ function EditJob() {
           <CardContent className="space-y-6">
             {/* Deadline */}
             <div className="space-y-2">
-              <Label htmlFor="applicationDeadline">
-                Application Deadline
-              </Label>
+              <Label htmlFor="applicationDeadline">Application Deadline</Label>
 
               <Input
                 id="applicationDeadline"
@@ -724,9 +653,7 @@ function EditJob() {
                 type="date"
                 value={formData.applicationDeadline}
                 onChange={handleChange}
-                aria-invalid={
-                  !!errors.applicationDeadline
-                }
+                aria-invalid={!!errors.applicationDeadline}
               />
 
               {errors.applicationDeadline && (
@@ -743,11 +670,7 @@ function EditJob() {
               <div className="flex flex-wrap gap-3">
                 <Button
                   type="button"
-                  variant={
-                    formData.isActive
-                      ? "default"
-                      : "outline"
-                  }
+                  variant={formData.isActive ? "default" : "outline"}
                   onClick={() =>
                     setFormData((previous) => ({
                       ...previous,
@@ -760,11 +683,7 @@ function EditJob() {
 
                 <Button
                   type="button"
-                  variant={
-                    !formData.isActive
-                      ? "default"
-                      : "outline"
-                  }
+                  variant={!formData.isActive ? "default" : "outline"}
                   onClick={() =>
                     setFormData((previous) => ({
                       ...previous,
@@ -777,8 +696,8 @@ function EditJob() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Active jobs are visible to job seekers.
-                Closed jobs are not shown in the public job list.
+                Active jobs are visible to job seekers. Closed jobs are not
+                shown in the public job list.
               </p>
             </div>
           </CardContent>
@@ -795,10 +714,7 @@ function EditJob() {
             Cancel
           </Button>
 
-          <Button
-            type="submit"
-            disabled={saving}
-          >
+          <Button type="submit" disabled={saving}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -818,4 +734,3 @@ function EditJob() {
 }
 
 export default EditJob;
-

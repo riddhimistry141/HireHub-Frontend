@@ -13,6 +13,7 @@ import Profile from "./components/user-pages/Profile";
 import EditProfile from "./components/user-pages/EditProfile";
 import Jobs from "./components/user-pages/Jobs";
 import JobDetails from "./components/user-pages/JobDetails";
+import SavedJobs from "./components/user-pages/SavedJobs";
 import ApplyJob from "./components/user-pages/ApplyJob";
 import UserApplications from "./components/user-pages/UserApplications";
 import UserApplicationDetails from "./components/user-pages/UserApplicationDetails";
@@ -22,6 +23,7 @@ import Resume from "./components/user-pages/Resume";
 import RecruiterDashboard from "./components/recruiter-pages/RecruiterDashboard";
 import CompanyProfile from "./components/recruiter-pages/CompanyProfile";
 import MyJobs from "./components/recruiter-pages/MyJobs";
+import RecruiterJobDetails from "./components/recruiter-pages/RecruiterJobDetails";
 import CreateJob from "./components/recruiter-pages/CreateJob";
 import EditJob from "./components/recruiter-pages/EditJob";
 import Applicants from "./components/recruiter-pages/Applicants";
@@ -45,7 +47,7 @@ import "./App.css";
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* <Route path="/" element={<Navigate to="/dashboard" replace />} /> */}
       <Route path="/register" element={<SignupForm />} />
       <Route path="/login" element={<LoginForm />} />
       {/* Dashboard Layout */}
@@ -58,13 +60,15 @@ function App() {
         <Route path="/jobs/:id" element={<JobDetails />} />
         <Route path="/jobs/:id/apply" element={<ApplyJob />} />
         <Route path="/applications" element={<UserApplications />} />
-        <Route path="/applications/:applicationId" element={<UserApplicationDetails />} />
+        <Route path="/applications/:id" element={<UserApplicationDetails />} />
         <Route path="/resume" element={<Resume />} />
+        <Route path="/saved-jobs" element={<SavedJobs/>}/>
         
         {/* Recruiter Routes */}
         <Route path="recruiter/dashboard" element={<RecruiterDashboard />} />
         <Route path="recruiter/company" element={<CompanyProfile/>}/>
         <Route path="recruiter/jobs" element={<MyJobs />} />
+        <Route path="recruiter/jobs/:id" element={<RecruiterJobDetails />} />
         <Route path="recruiter/jobs/create" element={<CreateJob />} />
         <Route path="recruiter/jobs/edit/:jobId" element={<EditJob />} />
         <Route path="recruiter/applicants" element={<Applicants />} />

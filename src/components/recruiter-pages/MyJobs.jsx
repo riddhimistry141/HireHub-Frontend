@@ -50,6 +50,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 function getStatusLabel(status) {
   const labels = {
+    DRAFT: "Draft",
     ACTIVE: "Active",
     CLOSED: "Closed",
   };
@@ -59,6 +60,9 @@ function getStatusLabel(status) {
 
 function getStatusClasses(status) {
   const classes = {
+    DRAFT:
+      "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
+
     ACTIVE:
       "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300",
 
@@ -210,7 +214,7 @@ function MyJobs() {
         job.title.toLowerCase().includes(searchText) ||
         job.location.toLowerCase().includes(searchText);
 
-      const jobStatus = job.isActive ? "ACTIVE" : "CLOSED";
+      const jobStatus = job.status;
 
       const matchesStatus =
         statusFilter === "ALL" || jobStatus === statusFilter;
@@ -221,9 +225,13 @@ function MyJobs() {
     });
   }, [jobs, search, statusFilter, typeFilter]);
 
-  const activeJobs = jobs.filter((job) => job.isActive).length;
+  const activeJobs = jobs.filter((job) => job.status === "ACTIVE").length;
 
-  const totalApplicants = 0;
+  //const totalApplicants = 0;
+  const totalApplicants = jobs.reduce(
+    (total, job) => total + (job.applied || 0),
+    0,
+  );
 
   const handleDeleteClick = (job) => {
     setJobToDelete(job);
@@ -268,6 +276,53 @@ function MyJobs() {
       toast.error(error.message || "Failed to delete job");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (job) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const newStatus = job.status === "ACTIVE" ? "CLOSED" : "ACTIVE";
+
+      const response = await fetch(`${BASE_URL}/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update job status");
+      }
+
+      toast.success(
+        newStatus === "CLOSED"
+          ? "Job closed successfully"
+          : "Job reopened successfully",
+      );
+
+      // Refresh jobs
+      const jobsResponse = await fetch(`${BASE_URL}/jobs/my`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const jobsData = await jobsResponse.json();
+
+      if (jobsResponse.ok) {
+        setJobs(jobsData.data || []);
+      }
+    } catch (error) {
+      console.error("Status update error:", error);
+      toast.error(error.message || "Failed to update job status");
     }
   };
 
@@ -370,6 +425,8 @@ function MyJobs() {
 
               <SelectContent>
                 <SelectItem value="ALL">All Statuses</SelectItem>
+
+                <SelectItem value="DRAFT">Draft</SelectItem>
 
                 <SelectItem value="ACTIVE">Active</SelectItem>
 
@@ -491,7 +548,7 @@ function MyJobs() {
                     </th>
 
                     <th className="px-6 py-3 text-left font-medium text-muted-foreground">
-                      Applicants
+                      Slots
                     </th>
 
                     <th className="px-6 py-3 text-left font-medium text-muted-foreground">
@@ -510,7 +567,7 @@ function MyJobs() {
 
                 <tbody className="divide-y">
                   {filteredJobs.map((job) => {
-                    const status = job.isActive ? "ACTIVE" : "CLOSED";
+                    const status = job.status;
 
                     return (
                       <tr
@@ -549,10 +606,29 @@ function MyJobs() {
                           </Badge>
                         </td>
 
-                        {/* Applicants */}
-                        <td className="px-6 py-4">
+                        {/* Applicants/slot */}
+                        {/* <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
                             <Users className="size-4" />0
+                          </div>
+                        </td> */}
+                        <td className="px-6 py-4">
+                          <div className="space-y-1 text-sm">
+                            <p className="font-medium">
+                              Total: {job.totalSlots}
+                            </p>
+
+                            <p className="text-muted-foreground">
+                              Applied: {job.applied}
+                            </p>
+
+                            <p className="text-muted-foreground">
+                              Left: {job.left}
+                            </p>
+
+                            <p className="text-muted-foreground">
+                              Hired: {job.hired}
+                            </p>
                           </div>
                         </td>
 
@@ -586,9 +662,7 @@ function MyJobs() {
 
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() =>
-                                  navigate(`/jobs/${job.id}`)
-                                }
+                                onClick={() => navigate(`/recruiter/jobs/${job.id}`)}
                               >
                                 <Eye className="mr-2 size-4" />
                                 View Job
@@ -615,12 +689,14 @@ function MyJobs() {
                               <DropdownMenuSeparator />
 
                               <DropdownMenuItem
-                                onClick={() =>
-                                  navigate(`/recruiter/jobs/edit/${job.id}`)
-                                }
+                                onClick={() => handleStatusChange(job)}
                               >
                                 <BriefcaseBusiness className="mr-2 size-4" />
-                                {job.isActive ? "Close Job" : "Reopen Job"}
+                                {job.status === "ACTIVE"
+                                  ? "Close Job"
+                                  : job.status === "CLOSED"
+                                    ? "Reopen Job"
+                                    : "Publish Job"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -634,7 +710,7 @@ function MyJobs() {
           )}
         </CardContent>
       </Card>
-      
+
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>

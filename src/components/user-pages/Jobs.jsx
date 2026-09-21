@@ -1,5 +1,5 @@
-
 import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 
 import {
   Search,
@@ -14,12 +14,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,11 +68,10 @@ function formatPostedDate(date) {
 
   const now = new Date();
 
-  const differenceInMilliseconds =
-    now.getTime() - createdDate.getTime();
+  const differenceInMilliseconds = now.getTime() - createdDate.getTime();
 
   const differenceInDays = Math.floor(
-    differenceInMilliseconds / (1000 * 60 * 60 * 24)
+    differenceInMilliseconds / (1000 * 60 * 60 * 24),
   );
 
   if (differenceInDays <= 0) {
@@ -107,12 +101,14 @@ function Jobs() {
   const [jobs, setJobs] = useState([]);
 
   const [search, setSearch] = useState("");
-  const [locationFilter, setLocationFilter] =
-    useState("ALL");
+  const [locationFilter, setLocationFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [savedJobs, setSavedJobs] = useState({});
+  const [savingJobId, setSavingJobId] = useState(null);
 
   // Fetch active jobs from backend
   useEffect(() => {
@@ -121,25 +117,19 @@ function Jobs() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(
-          `${BASE_URL}/jobs`
-        );
+        const response = await fetch(`${BASE_URL}/jobs`);
 
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to fetch jobs"
-          );
+          throw new Error(data.message || "Failed to fetch jobs");
         }
 
         setJobs(data.data || []);
       } catch (error) {
         console.error("Fetch jobs error:", error);
 
-        setError(
-          error.message || "Failed to fetch jobs"
-        );
+        setError(error.message || "Failed to fetch jobs");
       } finally {
         setLoading(false);
       }
@@ -148,20 +138,90 @@ function Jobs() {
     fetchJobs();
   }, []);
 
+  useEffect(() => {
+    const loadSavedJobs = async () => {
+      const token = localStorage.getItem("token");
+
+      if (!token || jobs.length === 0) {
+        return;
+      }
+
+      try {
+        const savedJobEntries = await Promise.all(
+          jobs.map(async (job) => {
+            const response = await fetch(`${BASE_URL}/jobs/${job.id}/saved`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data.message || "Failed to check saved job");
+            }
+
+            return [job.id, data.saved];
+          }),
+        );
+
+        setSavedJobs(Object.fromEntries(savedJobEntries));
+      } catch (error) {
+        console.error("Load saved jobs error:", error);
+      }
+    };
+
+    loadSavedJobs();
+  }, [jobs]);
+
+  const handleSaveJob = async (jobId) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        toast.error("Please login to save jobs");
+        return;
+      }
+
+      setSavingJobId(jobId);
+
+      const response = await fetch(`${BASE_URL}/jobs/${jobId}/save`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save job");
+      }
+
+      setSavedJobs((previous) => ({
+        ...previous,
+        [jobId]: data.saved,
+      }));
+
+      toast.success(data.message);
+    } catch (error) {
+      console.error("Save job error:", error);
+
+      toast.error(error.message || "Failed to save job");
+    } finally {
+      setSavingJobId(null);
+    }
+  };
+
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      const searchText = search
-        .trim()
-        .toLowerCase();
+      const searchText = search.trim().toLowerCase();
 
-      const title =
-        job.title?.toLowerCase() || "";
+      const title = job.title?.toLowerCase() || "";
 
-      const company =
-        job.company?.name?.toLowerCase() || "";
+      const company = job.company?.name?.toLowerCase() || "";
 
-      const location =
-        job.location?.toLowerCase() || "";
+      const location = job.location?.toLowerCase() || "";
 
       const matchesSearch =
         !searchText ||
@@ -169,25 +229,13 @@ function Jobs() {
         company.includes(searchText);
 
       const matchesLocation =
-        locationFilter === "ALL" ||
-        job.location === locationFilter;
+        locationFilter === "ALL" || job.location === locationFilter;
 
-      const matchesType =
-        typeFilter === "ALL" ||
-        job.jobType === typeFilter;
+      const matchesType = typeFilter === "ALL" || job.jobType === typeFilter;
 
-      return (
-        matchesSearch &&
-        matchesLocation &&
-        matchesType
-      );
+      return matchesSearch && matchesLocation && matchesType;
     });
-  }, [
-    jobs,
-    search,
-    locationFilter,
-    typeFilter,
-  ]);
+  }, [jobs, search, locationFilter, typeFilter]);
 
   const clearFilters = () => {
     setSearch("");
@@ -204,8 +252,7 @@ function Jobs() {
         </h1>
 
         <p className="mt-1 text-sm text-muted-foreground">
-          Discover jobs that match your skills and career
-          goals.
+          Discover jobs that match your skills and career goals.
         </p>
       </div>
 
@@ -219,75 +266,47 @@ function Jobs() {
 
               <Input
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search jobs or companies..."
                 className="pl-9"
               />
             </div>
 
             {/* Location */}
-            <Select
-              value={locationFilter}
-              onValueChange={setLocationFilter}
-            >
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
               <SelectTrigger className="w-full lg:w-[210px]">
                 <SelectValue placeholder="Location" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="ALL">
-                  All Locations
-                </SelectItem>
+                <SelectItem value="ALL">All Locations</SelectItem>
 
-                <SelectItem value="Ahmedabad, Gujarat">
-                  Ahmedabad
-                </SelectItem>
+                <SelectItem value="Ahmedabad, Gujarat">Ahmedabad</SelectItem>
 
-                <SelectItem value="Surat, Gujarat">
-                  Surat
-                </SelectItem>
+                <SelectItem value="Surat, Gujarat">Surat</SelectItem>
 
-                <SelectItem value="Vadodara, Gujarat">
-                  Vadodara
-                </SelectItem>
+                <SelectItem value="Vadodara, Gujarat">Vadodara</SelectItem>
 
-                <SelectItem value="Mumbai, Maharashtra">
-                  Mumbai
-                </SelectItem>
+                <SelectItem value="Mumbai, Maharashtra">Mumbai</SelectItem>
 
-                <SelectItem value="Remote">
-                  Remote
-                </SelectItem>
+                <SelectItem value="Remote">Remote</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Job Type */}
-            <Select
-              value={typeFilter}
-              onValueChange={setTypeFilter}
-            >
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-full lg:w-[180px]">
                 <SelectValue placeholder="Job Type" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="ALL">
-                  All Job Types
-                </SelectItem>
+                <SelectItem value="ALL">All Job Types</SelectItem>
 
-                <SelectItem value="ONSITE">
-                  On-site
-                </SelectItem>
+                <SelectItem value="ONSITE">On-site</SelectItem>
 
-                <SelectItem value="REMOTE">
-                  Remote
-                </SelectItem>
+                <SelectItem value="REMOTE">Remote</SelectItem>
 
-                <SelectItem value="HYBRID">
-                  Hybrid
-                </SelectItem>
+                <SelectItem value="HYBRID">Hybrid</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -340,13 +359,10 @@ function Jobs() {
           {/* Results heading */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-foreground">
-                Available Jobs
-              </h2>
+              <h2 className="font-semibold text-foreground">Available Jobs</h2>
 
               <p className="text-sm text-muted-foreground">
-                Showing {filteredJobs.length} of{" "}
-                {jobs.length} jobs
+                Showing {filteredJobs.length} of {jobs.length} jobs
               </p>
             </div>
           </div>
@@ -360,9 +376,7 @@ function Jobs() {
                 </div>
 
                 <h3 className="font-semibold text-foreground">
-                  {jobs.length === 0
-                    ? "No jobs available"
-                    : "No jobs found"}
+                  {jobs.length === 0 ? "No jobs available" : "No jobs found"}
                 </h3>
 
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
@@ -403,19 +417,22 @@ function Jobs() {
                           </CardTitle>
 
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {job.company?.name ||
-                              "Company"}
+                            {job.company?.name || "Company"}
                           </p>
                         </div>
                       </div>
 
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="icon"
-                        className="shrink-0"
-                        aria-label={`Save ${job.title}`}
+                        onClick={() => handleSaveJob(job.id)}
+                        disabled={savingJobId === job.id}
                       >
-                        <Bookmark className="size-5" />
+                        <Bookmark
+                          className={`size-4 ${
+                            savedJobs[job.id] ? "fill-current" : ""
+                          }`}
+                        />
                       </Button>
                     </div>
                   </CardHeader>
@@ -431,16 +448,13 @@ function Jobs() {
                       <span className="flex items-center gap-1.5">
                         <BriefcaseBusiness className="size-4" />
 
-                        {job.experience?.experienceName ||
-                          "Not specified"}
+                        {job.experience?.experienceName || "Not specified"}
                       </span>
 
                       <span className="flex items-center gap-1.5">
                         <Clock3 className="size-4" />
 
-                        {formatPostedDate(
-                          job.createdAt
-                        )}
+                        {formatPostedDate(job.createdAt)}
                       </span>
                     </div>
 
@@ -448,8 +462,7 @@ function Jobs() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-foreground">
-                          {job.salary ||
-                            "Salary not specified"}
+                          {job.salary || "Salary not specified"}
                         </p>
 
                         <p className="text-xs text-muted-foreground">
@@ -459,27 +472,18 @@ function Jobs() {
 
                       <Badge
                         variant="outline"
-                        className={getJobTypeClasses(
-                          job.jobType
-                        )}
+                        className={getJobTypeClasses(job.jobType)}
                       >
-                        {getJobTypeLabel(
-                          job.jobType
-                        )}
+                        {getJobTypeLabel(job.jobType)}
                       </Badge>
                     </div>
 
                     {/* Action */}
                     <Button
                       className="w-full"
-                      onClick={() =>
-                        navigate(
-                          `/jobs/${job.id}`
-                        )
-                      }
+                      onClick={() => navigate(`/jobs/${job.id}`)}
                     >
                       View Job Details
-
                       <ArrowRight className="ml-1 size-4" />
                     </Button>
                   </CardContent>
@@ -494,4 +498,3 @@ function Jobs() {
 }
 
 export default Jobs;
-

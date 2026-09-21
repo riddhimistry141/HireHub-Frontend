@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 import {
   ArrowLeft,
   Bookmark,
@@ -15,12 +16,7 @@ import {
 
 import { useNavigate, useParams } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +100,25 @@ function JobDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [isSaved, setIsSaved] = useState(false);
+  const [savingJob, setSavingJob] = useState(false);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const deadline = job?.applicationDeadline
+    ? new Date(job.applicationDeadline)
+    : null;
+
+  if (deadline) {
+    deadline.setHours(0, 0, 0, 0);
+  }
+
+  const isDeadlinePassed = deadline ? deadline <= today : false;
+  const isSlotsFull = job?.left <= 0;
+  const canApply =
+    job?.status === "ACTIVE" && !isDeadlinePassed && !isSlotsFull;
+
   useEffect(() => {
     const fetchJob = async () => {
       try {
@@ -121,9 +136,7 @@ function JobDetails() {
       } catch (error) {
         console.error("Fetch job details error:", error);
 
-        setError(
-          error.message || "Failed to fetch job details"
-        );
+        setError(error.message || "Failed to fetch job details");
       } finally {
         setLoading(false);
       }
@@ -133,6 +146,72 @@ function JobDetails() {
       fetchJob();
     }
   }, [id]);
+
+  useEffect(() => {
+    const checkSavedJob = async () => {
+      const token = localStorage.getItem("token");
+
+      if (!token || !id) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${BASE_URL}/jobs/${id}/saved`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to check saved job");
+        }
+
+        setIsSaved(data.saved);
+      } catch (error) {
+        console.error("Check saved job error:", error);
+      }
+    };
+
+    checkSavedJob();
+  }, [id]);
+
+  const handleSaveJob = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        toast.error("Please login to save jobs");
+        return;
+      }
+
+      setSavingJob(true);
+
+      const response = await fetch(`${BASE_URL}/jobs/${id}/save`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save job");
+      }
+
+      setIsSaved(data.saved);
+
+      toast.success(data.message);
+    } catch (error) {
+      console.error("Save job error:", error);
+
+      toast.error(error.message || "Failed to save job");
+    } finally {
+      setSavingJob(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -154,18 +233,11 @@ function JobDetails() {
               <BriefcaseBusiness className="size-5 text-muted-foreground" />
             </div>
 
-            <h2 className="text-lg font-semibold">
-              Unable to load job
-            </h2>
+            <h2 className="text-lg font-semibold">Unable to load job</h2>
 
-            <p className="mt-1 text-sm text-muted-foreground">
-              {error}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{error}</p>
 
-            <Button
-              className="mt-5"
-              onClick={() => navigate("/jobs")}
-            >
+            <Button className="mt-5" onClick={() => navigate("/jobs")}>
               <ArrowLeft className="mr-2 size-4" />
               Back to Jobs
             </Button>
@@ -184,18 +256,13 @@ function JobDetails() {
               <BriefcaseBusiness className="size-5 text-muted-foreground" />
             </div>
 
-            <h2 className="text-lg font-semibold">
-              Job not found
-            </h2>
+            <h2 className="text-lg font-semibold">Job not found</h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
               The job you're looking for may no longer exist.
             </p>
 
-            <Button
-              className="mt-5"
-              onClick={() => navigate("/jobs")}
-            >
+            <Button className="mt-5" onClick={() => navigate("/jobs")}>
               <ArrowLeft className="mr-2 size-4" />
               Back to Jobs
             </Button>
@@ -243,8 +310,7 @@ function JobDetails() {
 
                   <span className="flex items-center gap-1.5">
                     <BriefcaseBusiness className="size-4" />
-                    {job.experience?.experienceName ||
-                      "Not specified"}
+                    {job.experience?.experienceName || "Not specified"}
                   </span>
 
                   <span className="flex items-center gap-1.5">
@@ -255,31 +321,33 @@ function JobDetails() {
               </div>
             </div>
 
-            <Badge
-              variant="outline"
-              className={getJobTypeClasses(job.jobType)}
-            >
+            <Badge variant="outline" className={getJobTypeClasses(job.jobType)}>
               {getJobTypeLabel(job.jobType)}
             </Badge>
           </div>
 
           <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row">
             <Button
-              className="flex-1 sm:flex-none"
-              onClick={() =>
-                navigate(`/jobs/${id}/apply`)
-              }
+              disabled={!canApply}
+              onClick={() => navigate(`/jobs/${id}/apply`)}
             >
-              <Send className="mr-2 size-4" />
-              Apply Now
+              {isSlotsFull
+                ? "No Slots Available"
+                : isDeadlinePassed
+                  ? "Application Closed"
+                  : "Apply Now"}
             </Button>
 
             <Button
               variant="outline"
-              className="flex-1 sm:flex-none"
+              onClick={handleSaveJob}
+              disabled={savingJob}
             >
-              <Bookmark className="mr-2 size-4" />
-              Save Job
+              <Bookmark
+                className={`mr-2 size-4 ${isSaved ? "fill-current" : ""}`}
+              />
+
+              {savingJob ? "Saving..." : isSaved ? "Saved" : "Save Job"}
             </Button>
           </div>
         </CardContent>
@@ -311,20 +379,15 @@ function JobDetails() {
             <CardContent>
               {job.responsibilities?.length > 0 ? (
                 <div className="space-y-3">
-                  {job.responsibilities.map(
-                    (responsibility, index) => (
-                      <div
-                        key={index}
-                        className="flex gap-3"
-                      >
-                        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
+                  {job.responsibilities.map((responsibility, index) => (
+                    <div key={index} className="flex gap-3">
+                      <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
 
-                        <p className="text-sm leading-6 text-muted-foreground">
-                          {responsibility}
-                        </p>
-                      </div>
-                    )
-                  )}
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        {responsibility}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -343,20 +406,15 @@ function JobDetails() {
             <CardContent>
               {job.requirements?.length > 0 ? (
                 <div className="space-y-3">
-                  {job.requirements.map(
-                    (requirement, index) => (
-                      <div
-                        key={index}
-                        className="flex gap-3"
-                      >
-                        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
+                  {job.requirements.map((requirement, index) => (
+                    <div key={index} className="flex gap-3">
+                      <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" />
 
-                        <p className="text-sm leading-6 text-muted-foreground">
-                          {requirement}
-                        </p>
-                      </div>
-                    )
-                  )}
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        {requirement}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -375,20 +433,16 @@ function JobDetails() {
             <CardContent>
               {job.benefits?.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {job.benefits.map(
-                    (benefit, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 rounded-lg border border-border p-3"
-                      >
-                        <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                  {job.benefits.map((benefit, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 rounded-lg border border-border p-3"
+                    >
+                      <CheckCircle2 className="size-4 shrink-0 text-primary" />
 
-                        <span className="text-sm">
-                          {benefit}
-                        </span>
-                      </div>
-                    )
-                  )}
+                      <span className="text-sm">{benefit}</span>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -415,9 +469,7 @@ function JobDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Job Type
-                  </p>
+                  <p className="text-xs text-muted-foreground">Job Type</p>
 
                   <p className="mt-1 text-sm font-medium">
                     {getJobTypeLabel(job.jobType)}
@@ -432,13 +484,10 @@ function JobDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Experience
-                  </p>
+                  <p className="text-xs text-muted-foreground">Experience</p>
 
                   <p className="mt-1 text-sm font-medium">
-                    {job.experience?.experienceName ||
-                      "Not specified"}
+                    {job.experience?.experienceName || "Not specified"}
                   </p>
                 </div>
               </div>
@@ -450,13 +499,9 @@ function JobDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Location
-                  </p>
+                  <p className="text-xs text-muted-foreground">Location</p>
 
-                  <p className="mt-1 text-sm font-medium">
-                    {job.location}
-                  </p>
+                  <p className="mt-1 text-sm font-medium">{job.location}</p>
                 </div>
               </div>
 
@@ -467,9 +512,7 @@ function JobDetails() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Salary
-                  </p>
+                  <p className="text-xs text-muted-foreground">Salary</p>
 
                   <p className="mt-1 text-sm font-medium">
                     {job.salary || "Not specified"}
@@ -493,6 +536,22 @@ function JobDetails() {
                   </p>
                 </div>
               </div>
+
+              <div className="flex gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Users className="size-4" />
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Available Slots
+                  </p>
+
+                  <p className="mt-1 text-sm font-medium">
+                    {job.left} of {job.totalSlots}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -510,13 +569,11 @@ function JobDetails() {
 
                 <div>
                   <p className="font-medium">
-                    {job.company?.name ||
-                      "Company not available"}
+                    {job.company?.name || "Company not available"}
                   </p>
 
                   <p className="text-sm text-muted-foreground">
-                    {job.company?.location ||
-                      "Technology Company"}
+                    {job.company?.location || "Technology Company"}
                   </p>
                 </div>
               </div>
@@ -538,23 +595,23 @@ function JobDetails() {
           {/* Apply CTA */}
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-5">
-              <h3 className="font-semibold">
-                Interested in this position?
-              </h3>
+              <h3 className="font-semibold">Interested in this position?</h3>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Submit your application and take the next
-                step in your career.
+                Submit your application and take the next step in your career.
               </p>
 
               <Button
-                className="mt-4 w-full"
-                onClick={() =>
-                  navigate(`/jobs/${id}/apply`)
-                }
+                disabled={!canApply}
+                onClick={() => navigate(`/jobs/${id}/apply`)}
               >
-                Apply Now
-                <Send className="ml-2 size-4" />
+                {isSlotsFull
+                  ? "No Slots Available"
+                  : isDeadlinePassed
+                    ? "Application Closed"
+                    : "Apply Now"}
+
+                {/* <Send className="ml-2 size-4" /> */}
               </Button>
             </CardContent>
           </Card>
