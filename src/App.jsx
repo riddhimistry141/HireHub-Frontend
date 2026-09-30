@@ -1,12 +1,15 @@
-//import { useState } from 'react'
-//import heroImg from './assets/hero.png'
-//import reactLogo from './assets/react.svg'
-//import viteLogo from './assets/vite.svg'
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
+//landing page
+import LandingPage from "./components/LandingPage";
+
+//auth
 import { SignupForm } from "./components/auth/signup-form";
 import { LoginForm } from "./components/auth/login-form";
+
+//layout
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import AdminLayout from "./components/layouts/AdminLayout";
+
 //user pages
 import Dashboard from "./components/user-pages/Dashbord";
 import Profile from "./components/user-pages/Profile";
@@ -41,15 +44,18 @@ import AdminJobs from "./components/admin-pages/AdminJobs";
 import AdminJobDetails from "./components/admin-pages/AdminJobDetails";
 import AdminApplications from "./components/admin-pages/AdminApplications";
 import AdminApplicationDetails from "./components/admin-pages/AdminApplicationDetails";
+import AdminApplicantDetails from "./components/admin-pages/AdminApplicantDetails";
 import AdminProfile from "./components/admin-pages/AdminProfile";
 import "./App.css";
 
 function App() {
   return (
     <Routes>
-      {/* <Route path="/" element={<Navigate to="/dashboard" replace />} /> */}
+      <Route path="/" element={<LandingPage />} />
       <Route path="/register" element={<SignupForm />} />
       <Route path="/login" element={<LoginForm />} />
+      {/* <Route path="/jobs" element={<Jobs />} /> */}
+      {/* <Route path="/jobs/:id" element={<JobDetails />} /> */}
       {/* Dashboard Layout */}
       <Route element={<DashboardLayout />}>
         {/* User Routes */}
@@ -62,11 +68,11 @@ function App() {
         <Route path="/applications" element={<UserApplications />} />
         <Route path="/applications/:id" element={<UserApplicationDetails />} />
         <Route path="/resume" element={<Resume />} />
-        <Route path="/saved-jobs" element={<SavedJobs/>}/>
-        
+        <Route path="/saved-jobs" element={<SavedJobs />} />
+
         {/* Recruiter Routes */}
         <Route path="recruiter/dashboard" element={<RecruiterDashboard />} />
-        <Route path="recruiter/company" element={<CompanyProfile/>}/>
+        <Route path="recruiter/company" element={<CompanyProfile />} />
         <Route path="recruiter/jobs" element={<MyJobs />} />
         <Route path="recruiter/jobs/:id" element={<RecruiterJobDetails />} />
         <Route path="recruiter/jobs/create" element={<CreateJob />} />
@@ -75,22 +81,31 @@ function App() {
         <Route path="recruiter/applicants/:id" element={<ApplicantDetails />} />
         <Route path="recruiter/interviews" element={<Interviews />} />
         <Route path="recruiter/profile" element={<RecruiterProfile />} />
-        </Route>
+      </Route>
       {/* Admin Routes */}
       <Route element={<AdminLayout />}>
-          <Route path="admin/dashboard" element={<AdminDashboard />} />
-          <Route path="admin/users" element={<AdminUsers />} />
-          <Route path="admin/users/:id" element={<AdminUserDetails />} />
-          <Route path="admin/recruiters" element={<AdminRecruiters />} />
-          <Route path="admin/recruiters/:id" element={<AdminRecruiterDetails />} />
-          <Route path="admin/jobs" element={<AdminJobs />} />
-          <Route path="admin/jobs/:id" element={<AdminJobDetails />} />
-          <Route path="admin/applications" element={<AdminApplications />} />
-          <Route path="admin/applications/:id" element={<AdminApplicationDetails />} />
-          <Route path="admin/profile" element={<AdminProfile />} />
+        <Route path="admin/dashboard" element={<AdminDashboard />} />
+        <Route path="admin/users" element={<AdminUsers />} />
+        <Route path="admin/users/:id" element={<AdminUserDetails />} />
+        <Route path="admin/recruiters" element={<AdminRecruiters />} />
+        <Route
+          path="admin/recruiters/:id"
+          element={<AdminRecruiterDetails />}
+        />
+        <Route path="admin/jobs" element={<AdminJobs />} />
+        <Route path="admin/jobs/:id" element={<AdminJobDetails />} />
+        <Route path="admin/applications" element={<AdminApplications />} />
+        <Route
+          path="admin/applications/:id"
+          element={<AdminApplicationDetails />}
+        />
+        <Route
+          path="admin/applicants/:userId"
+          element={<AdminApplicantDetails />}
+        />
+        <Route path="admin/profile" element={<AdminProfile />} />
       </Route>
-    
-   </Routes>
+    </Routes>
   );
 }
 

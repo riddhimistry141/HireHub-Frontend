@@ -1,16 +1,93 @@
-# React + Vite
+# HireHub Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern recruitment platform frontend for job seekers, recruiters, and administrators, built with React and Vite.
 
-Currently, two official plugins are available:
+## Overview
+HireHub is designed to streamline the hiring lifecycle by combining job discovery, application tracking, recruiter workflows, and admin oversight in a single experience.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
+- User-friendly landing page
+- Login and registration flows
+- Job search and job detail pages
+- Profile management for users
+- Recruiter dashboard and job management
+- Applicant tracking and interview workflow
+- Admin dashboard for oversight and management
+- Responsive UI built with reusable components
 
-## React Compiler
+## Tech Stack
+- React
+- Vite
+- JavaScript
+- React Router
+- Tailwind CSS
+- Lucide icons
+- Custom component library
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Project Structure
+```bash
+src/
+├── components/
+│   ├── admin-pages/
+│   ├── auth/
+│   ├── layouts/
+│   ├── recruiter-pages/
+│   ├── theme/
+│   ├── ui/
+│   └── user-pages/
+├── App.jsx
+├── App.css
+├── main.jsx
+├── index.css
+└── lib/
+```
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 1. Install dependencies
+```bash
+npm install
+```
+
+### 2. Run the app locally
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+### 3. Build the app for production
+```bash
+npm run build
+```
+
+### 4. Run lint checks
+```bash
+npm run lint
+```
+
+## Screenshots
+
+### Landing Page
+![Landing Page](src\project_ss\landing-page.png)
+
+### Login Page
+![Login Page](src\project_ss\login-page.png)
+
+### Register Page
+![Register Page](src\project_ss\register-page.png)
+
+### Admin Dashboard
+![Admin Dashboard](src\project_ss\admin_dashbord.png)
+
+### Recruiter Dashboard
+![Recruiter Dashboard](src\project_ss\recruiter_dashbord.png)
+
+### User Dashboard
+![User Dashboard](src\project_ss\user_dashbord.png)
+
+## Notes
+- Routing is managed in `src/App.jsx`.
+- Shared UI components are organized under `src/components/ui`.
+- The app is structured around three main roles: user, recruiter, and admin.
+
+## License
+This project is intended for learning and portfolio use.

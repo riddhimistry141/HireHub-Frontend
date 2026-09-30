@@ -608,11 +608,14 @@ function ApplicantDetails() {
             </CardHeader>
 
             <CardContent>
-              <div className="rounded-lg bg-muted/40 p-5">
-                <p className="text-sm text-muted-foreground">
-                  Skills are not currently stored in the application data
-                  returned by the backend.
-                </p>
+              <div className="flex flex-wrap gap-2">
+                {applicant?.skills?.length > 0 ? (
+                  applicant.skills.map(function (skill, index) {
+                    return <Badge key={index}>{skill}</Badge>;
+                  })
+                ) : (
+                  <p>No skills provided</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -631,11 +634,11 @@ function ApplicantDetails() {
                 </div>
 
                 <div>
-                  <p className="font-medium">Not available</p>
-
-                  <p className="text-sm text-muted-foreground">
-                    Education details are not currently stored in the applicant
-                    data.
+                  <p>{applicant?.degree || "Degree not provided"}</p>
+                  <p>{applicant?.institution || "Institution not provided"}</p>
+                  <p>
+                    {applicant?.graduationYear ||
+                      "Graduation year not provided"}
                   </p>
                 </div>
               </div>
@@ -715,7 +718,9 @@ function ApplicantDetails() {
               <div className="flex items-center gap-3">
                 <UserRound className="size-4 text-muted-foreground" />
 
-                <span className="text-sm">Phone number not available</span>
+                <span className="text-sm">
+                  <p>{applicant?.phone || "Phone number not available"}</p>
+                </span>
               </div>
             </CardContent>
           </Card>

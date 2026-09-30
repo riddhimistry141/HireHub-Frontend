@@ -40,7 +40,8 @@ function EditJob() {
     requirements: "",
     benefits: "",
     applicationDeadline: "",
-    isActive: true,
+    totalSlots: "",
+    status: "ACTIVE",
   });
 
   const [experiences, setExperiences] = useState([]);
@@ -100,7 +101,8 @@ function EditJob() {
           applicationDeadline: job.applicationDeadline
             ? new Date(job.applicationDeadline).toISOString().split("T")[0]
             : "",
-          isActive: job.isActive ?? true,
+          totalSlots: job.totalSlots ?? "",
+          status: job.status || "DRAFT",
         });
 
         setExperiences(experienceData.data || []);
@@ -197,20 +199,28 @@ function EditJob() {
     }
 
     if (!formData.applicationDeadline) {
-      toast.error("Application deadline is required");
-      return;
+      newErrors.applicationDeadline = "Application deadline is required.";
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const deadline = new Date(formData.applicationDeadline);
+      deadline.setHours(0, 0, 0, 0);
+
+      if (deadline <= today) {
+        newErrors.applicationDeadline =
+          "Application deadline must be a future date.";
+      }
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const deadline = new Date(formData.applicationDeadline);
-    deadline.setHours(0, 0, 0, 0);
-
-    if (deadline <= today) {
-      toast.error("Application deadline must be a future date");
-      return;
+    if (
+      !formData.totalSlots ||
+      !Number.isInteger(Number(formData.totalSlots)) ||
+      Number(formData.totalSlots) <= 0
+    ) {
+      newErrors.totalSlots = "Total slots must be a positive number.";
     }
+
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
@@ -256,7 +266,9 @@ function EditJob() {
 
         applicationDeadline: formData.applicationDeadline,
 
-        isActive: formData.isActive,
+        totalSlots: Number(formData.totalSlots),
+
+        status: formData.status,
       };
 
       const response = await fetch(`${BASE_URL}/jobs/${jobId}`, {
@@ -643,6 +655,30 @@ function EditJob() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Total Slots */}
+            <div className="space-y-2">
+              <Label htmlFor="totalSlots">Total Openings</Label>
+
+              <Input
+                id="totalSlots"
+                name="totalSlots"
+                type="number"
+                min="1"
+                value={formData.totalSlots}
+                onChange={handleChange}
+                placeholder="e.g. 5"
+                aria-invalid={!!errors.totalSlots}
+              />
+
+              <p className="text-xs text-muted-foreground">
+                Enter the total number of openings for this job.
+              </p>
+
+              {errors.totalSlots && (
+                <p className="text-sm text-destructive">{errors.totalSlots}</p>
+              )}
+            </div>
+
             {/* Deadline */}
             <div className="space-y-2">
               <Label htmlFor="applicationDeadline">Application Deadline</Label>
@@ -670,11 +706,11 @@ function EditJob() {
               <div className="flex flex-wrap gap-3">
                 <Button
                   type="button"
-                  variant={formData.isActive ? "default" : "outline"}
+                  variant={formData.status === "ACTIVE" ? "default" : "outline"}
                   onClick={() =>
                     setFormData((previous) => ({
                       ...previous,
-                      isActive: true,
+                      status: "ACTIVE",
                     }))
                   }
                 >
@@ -683,11 +719,13 @@ function EditJob() {
 
                 <Button
                   type="button"
-                  variant={!formData.isActive ? "default" : "outline"}
+                  variant={
+                    !formData.status === "CLOSED" ? "default" : "outline"
+                  }
                   onClick={() =>
                     setFormData((previous) => ({
                       ...previous,
-                      isActive: false,
+                      status: "CLOSED",
                     }))
                   }
                 >

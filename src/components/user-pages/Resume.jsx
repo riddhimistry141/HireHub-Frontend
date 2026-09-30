@@ -143,84 +143,117 @@ function Resume() {
       setUploading(false);
     }
   };
- //#=========Download resuma ============
-  const handleDownload = async () => {
+
+  // ==================== PREVIEW RESUME ====================
+
+  const handlePreview = async () => {
     try {
-        setError("");
+      setError("");
 
-        const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
-        if (!token) {
-            navigate("/login");
-            return;
-        }
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
-        const response = await fetch(
-            `${BASE_URL}/resume/download`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            }
-        );
+      const response = await fetch(`${BASE_URL}/resume/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(
-                data.message || "Failed to download resume"
-            );
-        }
+      if (!response.ok) {
+        const data = await response.json();
 
-        const blob = await response.blob();
+        throw new Error(data.message || "Failed to preview resume");
+      }
 
-        const downloadUrl = window.URL.createObjectURL(blob);
+      const blob = await response.blob();
 
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.download = currentResume.fileName;
+      const previewUrl = window.URL.createObjectURL(blob);
 
-        document.body.appendChild(link);
-        link.click();
+      window.open(previewUrl, "_blank");
 
-        link.remove();
-        window.URL.revokeObjectURL(downloadUrl);
+      setTimeout(() => {
+        window.URL.revokeObjectURL(previewUrl);
+      }, 1000);
     } catch (error) {
-        setError(error.message);
+      setError(error.message);
     }
-};
+  };
 
- //#=============Delete resuma ==========
+  //#=========Download resuma ============
+  /* const handleDownload = async () => {
+    try {
+      setError("");
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/resume/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || "Failed to download resume");
+      }
+
+      const blob = await response.blob();
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = currentResume.fileName;
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      setError(error.message);
+    }
+  }; */
+
+  //#=============Delete resuma ==========
   const handleDelete = async () => {
-  try {
-    setError("");
+    try {
+      setError("");
 
-    const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
-    if (!token) {
-      navigate("/login");
-      return;
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/resume`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to remove resume");
+      }
+
+      setCurrentResume(null);
+    } catch (error) {
+      setError(error.message);
     }
-
-    const response = await fetch(`${BASE_URL}/resume`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Failed to remove resume"
-      );
-    }
-
-    setCurrentResume(null);
-  } catch (error) {
-    setError(error.message);
-  }
-};
+  };
 
   // ==================== REMOVE SELECTED FILE ====================
 
@@ -305,10 +338,16 @@ function Resume() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Button variant="outline" size="sm" onClick={handlePreview}>
+                  <FileText className="mr-2 size-4" />
+                  Preview
+                </Button>
+
+                {/* <div className="flex gap-2"> */}
+                {/* <Button variant="outline" size="sm" onClick={handleDownload}>
                   <Download className="mr-2 size-4" />
                   Download
-                </Button>
+                </Button> */}
 
                 <Button
                   variant="outline"

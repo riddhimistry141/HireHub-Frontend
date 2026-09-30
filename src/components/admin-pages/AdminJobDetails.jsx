@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Clock3,
   MapPin,
-  Pencil,
   XCircle,
 } from "lucide-react";
 
@@ -48,21 +47,16 @@ function AdminJobDetails() {
 
       const token = localStorage.getItem("token");
 
-      const response = await fetch(
-        `${BASE_URL}/admin/jobs/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${BASE_URL}/admin/jobs/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to fetch job"
-        );
+        throw new Error(data.message || "Failed to fetch job");
       }
 
       setJob(data.data);
@@ -76,43 +70,48 @@ function AdminJobDetails() {
   const updateJobStatus = async () => {
     if (!job) return;
 
+    const isActive = job.status === "ACTIVE";
+    const nextStatus = isActive ? "CLOSED" : "ACTIVE";
+
+    const actionText = isActive ? "deactivate" : "activate";
+
+    const confirmed = window.confirm(
+      isActive
+        ? "Deactivate this job?"
+        : "Activate this job?"
+    );
+
+    if (!confirmed) return;
+
     try {
       setUpdating(true);
+      setError("");
 
       const token = localStorage.getItem("token");
 
-      const nextStatus = !job.isActive;
-
-      const response = await fetch(
-        `${BASE_URL}/admin/jobs/${job.id}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            isActive: nextStatus,
-          }),
-        }
-      );
+      const response = await fetch(`${BASE_URL}/admin/jobs/${job.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to update job status"
-        );
+        throw new Error(data.message || `Failed to ${actionText} job`);
       }
 
       setJob((currentJob) => ({
         ...currentJob,
-        isActive: nextStatus,
+        status: nextStatus,
       }));
     } catch (error) {
-      setError(
-        error.message || "Failed to update job status"
-      );
+      setError(error.message || "Failed to update job status");
     } finally {
       setUpdating(false);
     }
@@ -147,8 +146,11 @@ function AdminJobDetails() {
     );
   }
 
+  const isActive = job.status === "ACTIVE";
+  const isClosed = job.status === "CLOSED";
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5">
       {/* Back */}
       <Button
         variant="ghost"
@@ -168,11 +170,11 @@ function AdminJobDetails() {
 
       {/* Header */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-5">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold">
+                <h1 className="text-2xl font-semibold tracking-tight">
                   {job.title}
                 </h1>
 
@@ -180,69 +182,70 @@ function AdminJobDetails() {
                   {job.jobType}
                 </Badge>
 
-                {job.isActive ? (
-                  <Badge className="gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Active
-                  </Badge>
-                ) : (
+                {isActive && (
                   <Badge
-                    variant="secondary"
-                    className="gap-1"
+                    variant="outline"
+                    className="gap-1 border-green-500/40 text-green-600"
                   >
-                    <XCircle className="h-3 w-3" />
-                    Inactive
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Activated
+                  </Badge>
+                )}
+
+                {isClosed && (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-red-500/40 text-red-600"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Deactivated
+                  </Badge>
+                )}
+
+                {!isActive && !isClosed && (
+                  <Badge variant="outline">
+                    {job.status || "Unknown"}
                   </Badge>
                 )}
               </div>
 
-              <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1.5">
                   <Building2 className="h-4 w-4" />
                   {job.company?.name || "—"}
                 </span>
 
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1.5">
                   <MapPin className="h-4 w-4" />
-                  {job.location}
+                  {job.location || "—"}
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {/* Edit */}
-              <Button
-                variant="outline"
-                onClick={() =>
-                  navigate(`/admin/jobs/${job.id}/edit`)
-                }
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Job
-              </Button>
+            <div className="shrink-0">
+              {isActive && (
+                <Button
+                  variant="outline"
+                  className="border-red-500/40 text-red-600 hover:bg-red-500/10 hover:text-red-600"
+                  disabled={updating}
+                  onClick={updateJobStatus}
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  {updating ? "Deactivating..." : "Deactivate Job"}
+                </Button>
+              )}
 
-              {/* Status */}
-              <Button
-                variant={
-                  job.isActive
-                    ? "destructive"
-                    : "default"
-                }
-                disabled={updating}
-                onClick={updateJobStatus}
-              >
-                {job.isActive ? (
-                  <>
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Deactivate
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Activate
-                  </>
-                )}
-              </Button>
+              {isClosed && (
+                <Button
+                  variant="outline"
+                  className="border-green-500/40 text-green-600 hover:bg-green-500/10 hover:text-green-600"
+                  disabled={updating}
+                  onClick={updateJobStatus}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {updating ? "Activating..." : "Activate Job"}
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -252,9 +255,7 @@ function AdminJobDetails() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <InfoCard
           label="Experience"
-          value={
-            job.experience?.experienceName || "—"
-          }
+          value={job.experience?.experienceName || "—"}
         />
 
         <InfoCard
@@ -279,17 +280,20 @@ function AdminJobDetails() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Main Content */}
+      <div className="grid gap-5 lg:grid-cols-3">
         {/* Main */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-5 lg:col-span-2">
           <Card>
-            <CardHeader>
-              <CardTitle>Job Description</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                Job Description
+              </CardTitle>
             </CardHeader>
 
             <CardContent>
-              <p className="leading-7 text-muted-foreground">
-                {job.description}
+              <p className="text-sm leading-7 text-muted-foreground">
+                {job.description || "No description available."}
               </p>
             </CardContent>
           </Card>
@@ -310,8 +314,10 @@ function AdminJobDetails() {
           />
 
           <Card>
-            <CardHeader>
-              <CardTitle>Skills</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                Skills
+              </CardTitle>
             </CardHeader>
 
             <CardContent>
@@ -321,6 +327,7 @@ function AdminJobDetails() {
                     <Badge
                       key={skill}
                       variant="secondary"
+                      className="font-normal"
                     >
                       {skill}
                     </Badge>
@@ -336,13 +343,15 @@ function AdminJobDetails() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-5">
           <Card>
-            <CardHeader>
-              <CardTitle>Job Overview</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                Job Overview
+              </CardTitle>
             </CardHeader>
 
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-4">
               <InfoRow
                 icon={BriefcaseBusiness}
                 label="Job Type"
@@ -402,7 +411,7 @@ function AdminJobDetails() {
                   Salary
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 text-sm font-medium">
                   {job.salary || "Not specified"}
                 </p>
               </div>
@@ -411,8 +420,10 @@ function AdminJobDetails() {
 
           {/* Company */}
           <Card>
-            <CardHeader>
-              <CardTitle>Company</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">
+                Company
+              </CardTitle>
             </CardHeader>
 
             <CardContent>
@@ -431,7 +442,7 @@ function AdminJobDetails() {
                   href={job.company.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 block text-sm text-primary hover:underline"
+                  className="mt-3 block break-all text-sm text-primary hover:underline"
                 >
                   {job.company.website}
                 </a>
@@ -447,12 +458,12 @@ function AdminJobDetails() {
 function InfoCard({ label, value }) {
   return (
     <Card>
-      <CardContent className="p-5">
-        <p className="text-sm text-muted-foreground">
+      <CardContent className="p-4">
+        <p className="text-xs text-muted-foreground">
           {label}
         </p>
 
-        <p className="mt-1 font-semibold">
+        <p className="mt-1.5 truncate text-sm font-semibold">
           {value}
         </p>
       </CardContent>
@@ -463,8 +474,10 @@ function InfoCard({ label, value }) {
 function ListCard({ title, items = [] }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">
+          {title}
+        </CardTitle>
       </CardHeader>
 
       <CardContent>
@@ -477,7 +490,9 @@ function ListCard({ title, items = [] }) {
               >
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
 
-                {item}
+                <span className="leading-6">
+                  {item}
+                </span>
               </li>
             ))}
           </ul>
@@ -491,21 +506,17 @@ function ListCard({ title, items = [] }) {
   );
 }
 
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-}) {
+function InfoRow({ icon: Icon, label, value }) {
   return (
     <div className="flex items-center gap-3">
-      <Icon className="h-4 w-4 text-muted-foreground" />
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-muted-foreground">
           {label}
         </p>
 
-        <p className="text-sm font-medium">
+        <p className="truncate text-sm font-medium">
           {value || "—"}
         </p>
       </div>

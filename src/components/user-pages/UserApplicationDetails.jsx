@@ -343,16 +343,16 @@ function UserApplicationDetails() {
                   <div className="min-w-0">
                     {/*<p className="truncate font-medium">
                        {application.resume} */}
-                      <p className="font-medium">
-                        {application.resumeUrl
-                          ? "Submitted resume"
-                          : "No resume attached"}
-                      </p>
+                    <p className="font-medium">
+                      {application.resumeUrl
+                        ? "Submitted resume"
+                        : "No resume attached"}
+                    </p>
 
-                      <p className="text-xs text-muted-foreground">
-                        Resume upload will be available when resume storage is
-                        connected.
-                      </p>
+                    <p className="text-xs text-muted-foreground">
+                      Resume upload will be available when resume storage is
+                      connected.
+                    </p>
                     {/* </p> */}
 
                     {/* <p className="text-xs text-muted-foreground">
@@ -371,6 +371,113 @@ function UserApplicationDetails() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Interview Details */}
+          {application.interview && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base">Interview Details</CardTitle>
+
+                  <Badge variant="outline">
+                    {application.interview.status}
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {/* Date, Time, Duration */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">Date</p>
+
+                    <p className="mt-1 text-sm font-medium">
+                      {new Date(
+                        application.interview.scheduledAt,
+                      ).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">Time</p>
+
+                    <p className="mt-1 text-sm font-medium">
+                      {new Date(
+                        application.interview.scheduledAt,
+                      ).toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">Duration</p>
+
+                    <p className="mt-1 text-sm font-medium">
+                      {application.interview.duration
+                        ? `${application.interview.duration} min`
+                        : "Not specified"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Meeting / Location */}
+                {(application.interview.meetingLink ||
+                  application.interview.location) && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
+                    <div className="min-w-0">
+                      {application.interview.location && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <MapPin className="size-4 shrink-0 text-muted-foreground" />
+                          <span>{application.interview.location}</span>
+                        </div>
+                      )}
+
+                      {application.interview.meetingLink && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="truncate text-muted-foreground">
+                            Online Interview
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {application.interview.meetingLink && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          window.open(
+                            application.interview.meetingLink,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                      >
+                        Join Interview
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {application.interview.notes && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Notes</p>
+
+                    <p className="mt-1 text-sm leading-6">
+                      {application.interview.notes}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Cover letter */}
           <Card>

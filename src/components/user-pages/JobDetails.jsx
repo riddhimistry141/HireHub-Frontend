@@ -555,39 +555,62 @@ function JobDetails() {
             </CardContent>
           </Card>
 
-          {/* Company */}
+          {/* Company Profile */}
           <Card>
             <CardHeader>
               <CardTitle>About the Company</CardTitle>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Company Header */}
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                  <Building2 className="size-5 text-muted-foreground" />
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-primary">
+                  {job.company?.logo ? (
+                    <img
+                      src={job.company.logo}
+                      alt={`${job.company.name} logo`}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <Building2 className="size-6" />
+                  )}
                 </div>
 
-                <div>
-                  <p className="font-medium">
+                <div className="min-w-0">
+                  <p className="font-semibold">
                     {job.company?.name || "Company not available"}
                   </p>
 
-                  <p className="text-sm text-muted-foreground">
-                    {job.company?.location || "Technology Company"}
-                  </p>
+                  {job.company?.location && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="size-3.5" />
+                      {job.company.location}
+                    </p>
+                  )}
                 </div>
               </div>
 
+              {/* Company Description */}
               {job.company?.description && (
-                <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                <p className="text-sm leading-6 text-muted-foreground">
                   {job.company.description}
                 </p>
               )}
 
+              {/* Website */}
               {job.company?.website && (
-                <p className="mt-2 text-sm text-primary">
-                  {job.company.website}
-                </p>
+                <a
+                  href={
+                    job.company.website.startsWith("http")
+                      ? job.company.website
+                      : `https://${job.company.website}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex text-sm font-medium text-primary hover:underline"
+                >
+                  Visit company website
+                </a>
               )}
             </CardContent>
           </Card>

@@ -85,6 +85,7 @@ function AdminRecruiters() {
       }
 
       setRecruiters(result.data || []);
+      console.log(result.data);
     } catch (error) {
       setError(error.message);
     } finally {
@@ -105,8 +106,10 @@ function AdminRecruiters() {
       const searchValue = search.toLowerCase().trim();
 
       const recruiterName = recruiter.name?.toLowerCase() || "";
-      const recruiterEmail = recruiter.auth?.email?.toLowerCase() || "";
-      const companyName = recruiter.company?.name?.toLowerCase() || "";
+      /* const recruiterEmail = recruiter.auth?.email?.toLowerCase() || "";
+      const companyName = recruiter.company?.name?.toLowerCase() || ""; */
+      const recruiterEmail = recruiter.email?.toLowerCase() || "";
+      const companyName = recruiter.companyName?.toLowerCase() || "";
 
       const matchesSearch =
         recruiterName.includes(searchValue) ||
@@ -458,12 +461,15 @@ function AdminRecruiters() {
               <TableBody>
                 {filteredRecruiters.length > 0 ? (
                   filteredRecruiters.map((recruiter) => {
-                    const email = recruiter.auth?.email || "No email";
+                    //const email = recruiter.auth?.email || "No email";
+                    const email = recruiter.email || "No email";
 
-                    const companyName = recruiter.company?.name || "No company";
 
+                    //const companyName = recruiter.company?.name || "No company";
+                    const companyName = recruiter.companyName || "No company";
+                    //const companyLocation = recruiter.company?.location || "Location not provided";
                     const companyLocation =
-                      recruiter.company?.location || "Location not provided";
+                      recruiter.companyLocation || "Location not provided";
 
                     const isActionLoading = actionLoading === recruiter.id;
 
@@ -510,8 +516,10 @@ function AdminRecruiters() {
                         {/* Joined */}
 
                         <TableCell className="text-sm text-muted-foreground">
-                          {recruiter.createdAt
+                          {/* {recruiter.createdAt
                             ? new Date(recruiter.createdAt).toLocaleDateString()
+                            : "-"} */}{recruiter.joined
+                            ? new Date(recruiter.joined).toLocaleDateString()
                             : "-"}
                         </TableCell>
 

@@ -4,7 +4,6 @@ import {
   CalendarDays,
   Clock3,
   ExternalLink,
-  MapPin,
   MoreHorizontal,
   Plus,
   Search,
@@ -18,7 +17,7 @@ import { toast } from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -109,6 +108,16 @@ function RecruiterInterviews() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+
+  const [rescheduleData, setRescheduleData] = useState({
+    interviewId: "",
+    candidateName: "",
+    jobTitle: "",
+    date: "",
+    time: "",
+  });
+
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -125,6 +134,133 @@ function RecruiterInterviews() {
   });
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  const openRescheduleDialog = (interview) => {
+    setRescheduleData({
+      interviewId: interview.id,
+      candidateName: interview.candidateName,
+      jobTitle: interview.jobTitle,
+      date: interview.date,
+      time: interview.time,
+    });
+
+    setRescheduleDialogOpen(true);
+  };
+
+  const handleReschedule = async () => {
+    if (
+      !rescheduleData.interviewId ||
+      !rescheduleData.date ||
+      !rescheduleData.time
+    ) {
+      toast.error("Please select a new date and time");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const scheduledAt = new Date(
+        `${rescheduleData.date}T${rescheduleData.time}`,
+      ).toISOString();
+
+      const response = await fetch(
+        `${BASE_URL}/applications/recruiter/interviews/${rescheduleData.interviewId}/reschedule`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            scheduledAt,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to reschedule interview");
+      }
+
+      toast.success(data.message || "Interview rescheduled successfully");
+
+      setRescheduleDialogOpen(false);
+
+      setRescheduleData({
+        interviewId: "",
+        candidateName: "",
+        jobTitle: "",
+        date: "",
+        time: "",
+      });
+
+      // Refresh interviews
+      const interviewsResponse = await fetch(
+        `${BASE_URL}/applications/recruiter/interviews`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const interviewsData = await interviewsResponse.json();
+
+      if (!interviewsResponse.ok) {
+        throw new Error(
+          interviewsData.message || "Failed to refresh interviews",
+        );
+      }
+
+      setInterviews((interviewsData.data || []).map(formatInterview));
+    } catch (error) {
+      console.error("Reschedule interview error:", error);
+
+      toast.error(error.message || "Failed to reschedule interview");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatInterview = (interview) => ({
+    id: interview.id,
+
+    applicationId: interview.applicationId,
+
+    candidateId: interview.application.user.id,
+
+    candidateName: interview.application.user.name,
+
+    candidateEmail: interview.application.user.auth?.email || "",
+
+    jobTitle: interview.application.job.title,
+
+    company: interview.application.job.company?.name || "",
+
+    date: interview.scheduledAt.split("T")[0],
+
+    time: new Date(interview.scheduledAt).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }),
+
+    duration: interview.duration
+      ? `${interview.duration} min`
+      : "Not specified",
+
+    meetingLink: interview.meetingLink,
+
+    location: interview.location,
+
+    status: interview.status,
+
+    notes: interview.notes,
+  });
 
   useEffect(() => {
     const fetchInterviews = async () => {
@@ -149,41 +285,7 @@ function RecruiterInterviews() {
           throw new Error(data.message || "Failed to fetch interviews");
         }
 
-        const formattedInterviews = data.data.map((interview) => ({
-          id: interview.id,
-
-          applicationId: interview.applicationId,
-
-          candidateId: interview.application.user.id,
-
-          candidateName: interview.application.user.name,
-
-          candidateEmail: interview.application.user.auth?.email || "",
-
-          jobTitle: interview.application.job.title,
-
-          company: interview.application.job.company?.name || "",
-
-          date: interview.scheduledAt.split("T")[0],
-
-          time: new Date(interview.scheduledAt).toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }),
-
-          duration: interview.duration
-            ? `${interview.duration} min`
-            : "Not specified",
-
-          meetingLink: interview.meetingLink,
-
-          location: interview.location,
-
-          status: interview.status,
-
-          notes: interview.notes,
-        }));
+        const formattedInterviews = data.data.map(formatInterview);
 
         setInterviews(formattedInterviews);
 
@@ -466,26 +568,7 @@ function RecruiterInterviews() {
 
       if (interviewsResponse.ok) {
         const formattedInterviews = (interviewsData.data || []).map(
-          (interview) => ({
-            id: interview.id,
-            candidateId: interview.application.user.id,
-            candidateName: interview.application.user.name,
-            candidateEmail: interview.application.user.auth?.email || "",
-            jobTitle: interview.application.job.title,
-            date: interview.scheduledAt.split("T")[0],
-            time: new Date(interview.scheduledAt).toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }),
-            duration: interview.duration
-              ? `${interview.duration} min`
-              : "Not specified",
-            type: "VIDEO",
-            meetingLink: interview.meetingLink,
-            status: interview.status,
-            notes: interview.notes,
-          }),
+          formatInterview,
         );
 
         setInterviews(formattedInterviews);
@@ -771,7 +854,7 @@ function RecruiterInterviews() {
                             <DropdownMenuItem
                               onClick={() =>
                                 navigate(
-                                  `/recruiter/applicants/${interview.candidateId}`,
+                                  `/recruiter/applicants/${interview.applicationId}`,
                                 )
                               }
                             >
@@ -815,6 +898,16 @@ function RecruiterInterviews() {
                                 Cancel Interview
                               </DropdownMenuItem>
                             )}
+                            {interview.status !== "COMPLETED" &&
+                              interview.status !== "CANCELLED" && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    openRescheduleDialog(interview)
+                                  }
+                                >
+                                  Reschedule Interview
+                                </DropdownMenuItem>
+                              )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1064,6 +1157,91 @@ function RecruiterInterviews() {
 
             <Button onClick={handleSchedule} disabled={saving}>
               {saving ? "Scheduling..." : "Schedule Interview"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Dialog */}
+
+      <Dialog
+        open={rescheduleDialogOpen}
+        onOpenChange={setRescheduleDialogOpen}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reschedule Interview</DialogTitle>
+
+            <DialogDescription>
+              Select a new date and time for this interview.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Candidate */}
+
+            <div className="space-y-2">
+              <Label>Candidate</Label>
+
+              <Input value={rescheduleData.candidateName} disabled />
+            </div>
+
+            {/* Job */}
+
+            <div className="space-y-2">
+              <Label>Job Position</Label>
+
+              <Input value={rescheduleData.jobTitle} disabled />
+            </div>
+
+            {/* New Date + Time */}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="reschedule-date">New Interview Date</Label>
+
+                <Input
+                  id="reschedule-date"
+                  type="date"
+                  value={rescheduleData.date}
+                  onChange={(event) =>
+                    setRescheduleData((previous) => ({
+                      ...previous,
+                      date: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reschedule-time">New Interview Time</Label>
+
+                <Input
+                  id="reschedule-time"
+                  type="time"
+                  value={rescheduleData.time}
+                  onChange={(event) =>
+                    setRescheduleData((previous) => ({
+                      ...previous,
+                      time: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRescheduleDialogOpen(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+
+            <Button onClick={handleReschedule} disabled={saving}>
+              {saving ? "Rescheduling..." : "Reschedule Interview"}
             </Button>
           </DialogFooter>
         </DialogContent>

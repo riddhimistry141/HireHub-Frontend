@@ -4,16 +4,14 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   FileText,
+  Loader2,
 } from "lucide-react";
+
+import { useEffect, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 
@@ -22,9 +20,108 @@ import { Badge } from "@/components/ui/badge";
 function Dashboard() {
   const navigate = useNavigate();
 
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  const [applications, setApplications] = useState([]);
+  const [savedJobs, setSavedJobs] = useState([]);
+  const [resume, setResume] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const headers = {
+          Authorization: `Bearer ${token}`,
+        };
+
+        const [applicationsResponse, savedJobsResponse, resumeResponse] =
+          await Promise.all([
+            fetch(`${BASE_URL}/applications/my`, {
+              headers,
+            }),
+
+            fetch(`${BASE_URL}/jobs/saved`, {
+              headers,
+            }),
+
+            fetch(`${BASE_URL}/resume`, {
+              headers,
+            }),
+          ]);
+
+        const applicationsData = await applicationsResponse.json();
+        const savedJobsData = await savedJobsResponse.json();
+        const resumeData = await resumeResponse.json();
+
+        if (!applicationsResponse.ok) {
+          throw new Error(
+            applicationsData.message || "Failed to fetch applications",
+          );
+        }
+
+        if (!savedJobsResponse.ok) {
+          throw new Error(
+            savedJobsData.message || "Failed to fetch saved jobs",
+          );
+        }
+
+        if (!resumeResponse.ok) {
+          throw new Error(resumeData.message || "Failed to fetch resume");
+        }
+
+        setApplications(applicationsData.data || []);
+        setSavedJobs(savedJobsData.data || []);
+        setResume(resumeData.data || null);
+      } catch (error) {
+        console.error("Dashboard fetch error:", error);
+        setError(error.message || "Failed to load dashboard");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [BASE_URL, navigate]);
+
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const name = user?.data?.name || "User";
+  const name = user?.name || "User";
+
+  const totalApplications = applications.length;
+
+  const totalInterviews = applications.filter(
+    (application) =>
+      application.status === "INTERVIEW" && application.interview,
+  ).length;
+
+  const totalSavedJobs = savedJobs.length;
+
+  const recentApplications = applications.slice(0, 3);
+
+  const formatStatus = (status) => {
+  const statusLabels = {
+    APPLIED: "Applied",
+    REVIEWING: "Under Review",
+    SHORTLISTED: "Shortlisted",
+    INTERVIEW: "Interview",
+    HIRED: "Hired",
+    REJECTED: "Rejected",
+    WITHDRAWN: "Withdrawn",
+  };
+
+  return statusLabels[status] || status;
+};
 
   return (
     <div className="space-y-6">
@@ -44,9 +141,7 @@ function Dashboard() {
         {/* Applications */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Applications
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Applications</CardTitle>
 
             <div className="flex size-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
               <BriefcaseBusiness className="size-5" />
@@ -55,7 +150,11 @@ function Dashboard() {
 
           <CardContent>
             <div className="text-2xl font-bold">
-              8
+              {loading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                totalApplications
+              )}
             </div>
 
             <p className="mt-1 text-xs text-muted-foreground">
@@ -67,9 +166,7 @@ function Dashboard() {
         {/* Interviews */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Interviews
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Interviews</CardTitle>
 
             <div className="flex size-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400">
               <CalendarDays className="size-5" />
@@ -78,7 +175,11 @@ function Dashboard() {
 
           <CardContent>
             <div className="text-2xl font-bold">
-              2
+              {loading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                totalInterviews
+              )}
             </div>
 
             <p className="mt-1 text-xs text-muted-foreground">
@@ -90,9 +191,7 @@ function Dashboard() {
         {/* Saved Jobs */}
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Saved Jobs
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Saved Jobs</CardTitle>
 
             <div className="flex size-10 items-center justify-center rounded-lg bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400">
               <Bookmark className="size-5" />
@@ -101,12 +200,14 @@ function Dashboard() {
 
           <CardContent>
             <div className="text-2xl font-bold">
-              12
+              {loading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                totalSavedJobs
+              )}
             </div>
 
-            <p className="mt-1 text-xs text-muted-foreground">
-              Jobs saved
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Jobs saved</p>
           </CardContent>
         </Card>
       </div>
@@ -115,9 +216,7 @@ function Dashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>
-              Recent Applications
-            </CardTitle>
+            <CardTitle>Recent Applications</CardTitle>
 
             <p className="mt-1 text-sm text-muted-foreground">
               Your latest job applications
@@ -136,75 +235,159 @@ function Dashboard() {
 
         <CardContent>
           <div className="divide-y">
-            {/* Application 1 */}
-            <div className="flex flex-col gap-3 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="font-medium">
-                  Frontend Developer
-                </h3>
-
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : recentApplications.length === 0 ? (
+              <div className="py-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  ABC Technologies
+                  You haven't applied for any jobs yet.
                 </p>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => navigate("/jobs")}
+                >
+                  Browse Jobs
+                </Button>
               </div>
+            ) : (
+              recentApplications.map((application) => (
+                <div
+                  key={application.id}
+                  className="cursor-pointer flex flex-col gap-3 rounded-lg py-4 transition-colors hover:bg-muted/50 first:pt-0 sm:flex-row sm:items-center sm:justify-between py-3 px-6"
+                  onClick={() => navigate(`/applications/${application.id}`)}
+                >
+                  <div className="min-w-0">
+                    <h3 className="truncate font-medium">
+                      {application.job?.title || "Unknown Job"}
+                    </h3>
 
-              <div className="flex items-center gap-3">
-                <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-950">
-                  Applied
-                </Badge>
+                    <p className="text-sm text-muted-foreground">
+                      {application.job?.company?.name || "Company"}
+                    </p>
+                  </div>
 
-                <span className="text-xs text-muted-foreground">
-                  2 days ago
-                </span>
-              </div>
-            </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline">{formatStatus(application.status)}</Badge>
 
-            {/* Application 2 */}
-            <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="font-medium">
-                  React Developer
-                </h3>
-
-                <p className="text-sm text-muted-foreground">
-                  XYZ Technologies
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Badge className="border-green-200 bg-green-50 text-green-700 hover:bg-green-50 dark:border-green-800 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-950">
-                  Shortlisted
-                </Badge>
-
-                <span className="text-xs text-muted-foreground">
-                  5 days ago
-                </span>
-              </div>
-            </div>
-
-            {/* Application 3 */}
-            <div className="flex flex-col gap-3 py-4 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="font-medium">
-                  Node.js Developer
-                </h3>
-
-                <p className="text-sm text-muted-foreground">
-                  Tech Company
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Badge className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-950">
-                  Under Review
-                </Badge>
-
-                <span className="text-xs text-muted-foreground">
-                  1 week ago
-                </span>
-              </div>
-            </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(application.createdAt).toLocaleDateString(
+                        "en-IN",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        },
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ================= UPCOMING INTERVIEW ================= */}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Upcoming Interview</CardTitle>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your next scheduled interview
+            </p>
+          </div>
+
+          <CalendarDays className="size-5 text-muted-foreground" />
+        </CardHeader>
+
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !applications.find(
+              (application) =>
+                application.status === "INTERVIEW" &&
+                application.interview?.status === "SCHEDULED",
+            ) ? (
+            <div className="py-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                No upcoming interviews.
+              </p>
+            </div>
+          ) : (
+            (() => {
+              const interviewApplication = applications.find(
+                (application) =>
+                  application.status === "INTERVIEW" &&
+                  application.interview?.status === "SCHEDULED",
+              );
+
+              return (
+                <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {interviewApplication.job?.title || "Interview"}
+                    </p>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {interviewApplication.job?.company?.name || "Company"}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span>
+                        {new Date(
+                          interviewApplication.interview.scheduledAt,
+                        ).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+
+                      <span>•</span>
+
+                      <span>
+                        {new Date(
+                          interviewApplication.interview.scheduledAt,
+                        ).toLocaleTimeString("en-IN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+
+                      {interviewApplication.interview.duration && (
+                        <>
+                          <span>•</span>
+
+                          <span>
+                            {interviewApplication.interview.duration} min
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      navigate(`/applications/${interviewApplication.id}`)
+                    }
+                  >
+                    View Interview
+                    <ArrowRight className="ml-1 size-4" />
+                  </Button>
+                </div>
+              );
+            })()
+          )}
         </CardContent>
       </Card>
 
@@ -212,20 +395,14 @@ function Dashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>
-              Recent Resume
-            </CardTitle>
+            <CardTitle>Recent Resume</CardTitle>
 
             <p className="mt-1 text-sm text-muted-foreground">
               Your latest resume information
             </p>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/resume")}
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate("/resume")}>
             View resume
             <ArrowRight className="ml-1 size-4" />
           </Button>
@@ -240,37 +417,38 @@ function Dashboard() {
 
             <div className="min-w-0">
               <p className="truncate font-medium">
-                Riddhi_Mistry_Resume.pdf
+                {resume?.fileName || "No resume uploaded"}
               </p>
 
               <p className="text-sm text-muted-foreground">
-                Last updated: 2 days ago
+                {resume?.updatedAt
+                  ? `Last updated: ${new Date(
+                      resume.updatedAt,
+                    ).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}`
+                  : "Upload your resume to get started"}
               </p>
             </div>
           </div>
 
           {/* Profile completion */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">
-                Profile completion
-              </span>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Resume Status</p>
 
-              <span className="font-medium text-primary">
-                80%
-              </span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {resume
+                  ? "Your resume is ready to use for applications."
+                  : "No resume uploaded yet."}
+              </p>
             </div>
 
-            <div
-              className="h-2 w-full overflow-hidden rounded-full bg-muted"
-              role="progressbar"
-              aria-valuenow="80"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-label="Profile completion"
-            >
-              <div className="h-full w-[80%] rounded-full bg-primary" />
-            </div>
+            <Badge variant={resume ? "secondary" : "outline"}>
+              {resume ? "Active" : "Missing"}
+            </Badge>
           </div>
         </CardContent>
       </Card>

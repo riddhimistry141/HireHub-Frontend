@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -23,31 +23,91 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+
 function RecruiterProfile() {
   const navigate = useNavigate();
 
-  const storedUser = JSON.parse(localStorage.getItem("user"));
-
-  const user = storedUser || {};
-
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const [profile, setProfile] = useState({
-    name: user.name || "Recruiter",
-    email: user.email || "",
-    jobTitle: "",
-    hiringFocus: "",
+    name: "",
+    email: "",
+    title: "",
+    about: "",
+    status: "ACTIVE",
+  });
+
+  const [formData, setFormData] = useState({
+    name: "",
+    title: "",
     about: "",
   });
 
-  const [formData, setFormData] = useState(profile);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          throw new Error("Authentication token not found");
+        }
+
+        const response = await fetch(`${BASE_URL}/users/profile`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || "Failed to fetch profile");
+        }
+
+        const user = result.data;
+
+        const profileData = {
+          name: user.name || "",
+          email: user.auth?.email || user.email || "",
+          title: user.title || "",
+          about: user.about || "",
+          status: user.status || "ACTIVE",
+        };
+
+        setProfile(profileData);
+
+        setFormData({
+          name: profileData.name,
+          title: profileData.title,
+          about: profileData.about,
+        });
+      } catch (error) {
+        console.error("Fetch recruiter profile error:", error);
+        setError(error.message || "Failed to fetch profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const initials = profile.name
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+    ? profile.name
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "R";
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,15 +118,86 @@ function RecruiterProfile() {
     }));
   };
 
-  const handleSave = () => {
-    setProfile(formData);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError("");
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+
+      const response = await fetch(`${BASE_URL}/users/profile`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          title: formData.title,
+          about: formData.about,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to update profile");
+      }
+
+      const updatedUser = result.data;
+
+      const updatedProfile = {
+        name: updatedUser.name || "",
+        email:
+          updatedUser.auth?.email || updatedUser.email || profile.email || "",
+        title: updatedUser.title || "",
+        about: updatedUser.about || "",
+        status: updatedUser.status || profile.status || "ACTIVE",
+      };
+
+      setProfile(updatedProfile);
+
+      setFormData({
+        name: updatedProfile.name,
+        title: updatedProfile.title,
+        about: updatedProfile.about,
+      });
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Update recruiter profile error:", error);
+      setError(error.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
-    setFormData(profile);
+    setFormData({
+      name: profile.name,
+      title: profile.title,
+      about: profile.about,
+    });
+
+    setError("");
     setIsEditing(false);
   };
+
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-6xl">
+        <Card>
+          <CardContent className="flex min-h-40 items-center justify-center">
+            <p className="text-sm text-muted-foreground">Loading profile...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -96,6 +227,15 @@ function RecruiterProfile() {
         )}
       </div>
 
+      {/* Error */}
+      {error && (
+        <Card className="border-destructive/50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Profile Header */}
       <Card className="overflow-hidden">
         <div className="h-28 bg-gradient-to-r from-primary/20 via-primary/10 to-background" />
@@ -111,7 +251,9 @@ function RecruiterProfile() {
 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold">{profile.name}</h2>
+                  <h2 className="text-xl font-semibold">
+                    {profile.name || "Recruiter"}
+                  </h2>
 
                   <Badge>
                     <ShieldCheck className="mr-1 h-3 w-3" />
@@ -120,13 +262,13 @@ function RecruiterProfile() {
                 </div>
 
                 <p className="text-sm text-muted-foreground">
-                  {profile.jobTitle || "Recruiter"}
+                  {profile.title || "Recruiter"}
                 </p>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Mail className="h-3.5 w-3.5" />
-                    {profile.email}
+                    {profile.email || "No email"}
                   </span>
                 </div>
               </div>
@@ -137,7 +279,7 @@ function RecruiterProfile() {
               className="w-fit border-green-500/30 text-green-600"
             >
               <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-              Active Account
+              {profile.status === "ACTIVE" ? "Active Account" : profile.status}
             </Badge>
           </div>
         </CardContent>
@@ -165,6 +307,7 @@ function RecruiterProfile() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
+                  placeholder="Enter your full name"
                 />
               </div>
 
@@ -176,36 +319,23 @@ function RecruiterProfile() {
                   id="email"
                   name="email"
                   type="email"
-                  value={formData.email}
+                  value={profile.email}
                   disabled
                 />
               </div>
 
               {/* Job Title */}
               <div className="space-y-2">
-                <Label htmlFor="jobTitle">Job Title</Label>
+                <Label htmlFor="title">Job Title</Label>
 
                 <Input
-                  id="jobTitle"
-                  name="jobTitle"
-                  value={formData.jobTitle}
+                  id="title"
+                  name="title"
+                  value={formData.title}
                   onChange={handleChange}
                   placeholder="e.g. Talent Acquisition Specialist"
                 />
               </div>
-            </div>
-
-            {/* Hiring Focus */}
-            <div className="space-y-2">
-              <Label htmlFor="hiringFocus">Hiring Focus</Label>
-
-              <Input
-                id="hiringFocus"
-                name="hiringFocus"
-                value={formData.hiringFocus}
-                onChange={handleChange}
-                placeholder="e.g. Frontend, Backend and Full Stack Developers"
-              />
             </div>
 
             {/* About */}
@@ -224,11 +354,17 @@ function RecruiterProfile() {
 
             {/* Actions */}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={handleCancel}>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={saving}
+              >
                 Cancel
               </Button>
 
-              <Button onClick={handleSave}>Save Changes</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -255,18 +391,7 @@ function RecruiterProfile() {
                 </p>
 
                 <p className="mt-1 font-medium">
-                  {profile.jobTitle || "Not provided"}
-                </p>
-              </div>
-
-              {/* Hiring Focus */}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Hiring Focus
-                </p>
-
-                <p className="mt-1 font-medium">
-                  {profile.hiringFocus || "Not provided"}
+                  {profile.title || "Not provided"}
                 </p>
               </div>
 
@@ -302,7 +427,9 @@ function RecruiterProfile() {
                     Email
                   </p>
 
-                  <p className="mt-1 font-medium">{profile.email}</p>
+                  <p className="mt-1 font-medium">
+                    {profile.email || "Not provided"}
+                  </p>
                 </div>
 
                 {/* Role */}
@@ -325,7 +452,7 @@ function RecruiterProfile() {
                     className="mt-2 border-green-500/30 text-green-600"
                   >
                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                    Active
+                    {profile.status === "ACTIVE" ? "Active" : profile.status}
                   </Badge>
                 </div>
               </div>

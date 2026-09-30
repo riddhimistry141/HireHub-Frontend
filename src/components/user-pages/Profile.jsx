@@ -7,31 +7,106 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { useEffect, useState } from "react";
+
 import { useNavigate } from "react-router-dom";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 function Profile() {
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  const name = user?.data?.name || "Riddhi Mistry";
-  const email = user?.data?.email || "riddhi@gmail.com";
-  const role = user?.data?.roleName || "USER";
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [resume, setResume] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await fetch(`${BASE_URL}/users/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const profileData = await response.json();
+
+        if (!response.ok) {
+          throw new Error(profileData.message || "Failed to fetch profile");
+        }
+
+        setUser(profileData.data);
+
+        const resumeResponse = await fetch(`${BASE_URL}/resume`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const resumeData = await resumeResponse.json();
+
+        if (!resumeResponse.ok) {
+          throw new Error(resumeData.message || "Failed to fetch resume");
+        }
+
+        setResume(resumeData.data || null);
+      } catch (error) {
+        console.error("Fetch profile error:", error);
+        setError(error.message || "Failed to fetch profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [BASE_URL, navigate]);
+
+  const name = user?.name || "User";
+  const email = user?.auth?.email || "No email";
+  const role = user?.role?.roleName || "USER";
+
+  const profileFields = [
+    name,
+    email,
+    user?.phone,
+    user?.location,
+    user?.title,
+    user?.about,
+    user?.skills?.length > 0,
+    user?.degree || user?.institution || user?.graduationYear,
+    resume,
+  ];
+
+  const completedFields = profileFields.filter((field) => {
+    if (typeof field === "boolean") {
+      return field;
+    }
+
+    return field && field.toString().trim() !== "";
+  }).length;
+
+  const profileCompletion = Math.round(
+    (completedFields / profileFields.length) * 100,
+  );
 
   const initials = name
     .split(" ")
@@ -40,7 +115,7 @@ function Profile() {
     .slice(0, 2)
     .toUpperCase();
 
-  const skills = [
+  /* const skills = [
     "HTML",
     "CSS",
     "JavaScript",
@@ -51,14 +126,12 @@ function Profile() {
     "Prisma",
     "Tailwind CSS",
   ];
-
+ */
   return (
     <div className="space-y-6">
       {/* Page intro */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Profile
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
 
         <p className="mt-1 text-sm text-muted-foreground">
           Manage your personal information and professional profile.
@@ -77,26 +150,17 @@ function Profile() {
               </Avatar>
 
               <div>
-                <h2 className="text-xl font-bold">
-                  {name}
-                </h2>
+                <h2 className="text-xl font-bold">{name}</h2>
 
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {email}
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{email}</p>
 
-                <Badge
-                  variant="secondary"
-                  className="mt-3"
-                >
+                <Badge variant="secondary" className="mt-3">
                   {role}
                 </Badge>
               </div>
             </div>
 
-            <Button
-              onClick={() => navigate("/profile/edit")}
-            >
+            <Button onClick={() => navigate("/profile/edit")}>
               <Edit className="mr-2 size-4" />
               Edit Profile
             </Button>
@@ -110,9 +174,7 @@ function Profile() {
           {/* Personal information */}
           <Card>
             <CardHeader>
-              <CardTitle>
-                Personal Information
-              </CardTitle>
+              <CardTitle>Personal Information</CardTitle>
             </CardHeader>
 
             <CardContent>
@@ -123,13 +185,9 @@ function Profile() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      Full Name
-                    </p>
+                    <p className="text-xs text-muted-foreground">Full Name</p>
 
-                    <p className="mt-1 text-sm font-medium">
-                      {name}
-                    </p>
+                    <p className="mt-1 text-sm font-medium">{name}</p>
                   </div>
                 </div>
 
@@ -139,13 +197,9 @@ function Profile() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">
-                      Email
-                    </p>
+                    <p className="text-xs text-muted-foreground">Email</p>
 
-                    <p className="mt-1 truncate text-sm font-medium">
-                      {email}
-                    </p>
+                    <p className="mt-1 truncate text-sm font-medium">{email}</p>
                   </div>
                 </div>
 
@@ -155,12 +209,10 @@ function Profile() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      Phone
-                    </p>
+                    <p className="text-xs text-muted-foreground">Phone</p>
 
                     <p className="mt-1 text-sm font-medium">
-                      +91 98765 43210
+                      {user?.phone || "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -171,12 +223,10 @@ function Profile() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      Location
-                    </p>
+                    <p className="text-xs text-muted-foreground">Location</p>
 
                     <p className="mt-1 text-sm font-medium">
-                      Gujarat, India
+                      {user?.location || "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -187,9 +237,7 @@ function Profile() {
           {/* Professional information */}
           <Card>
             <CardHeader>
-              <CardTitle>
-                Professional Information
-              </CardTitle>
+              <CardTitle>Professional Information</CardTitle>
             </CardHeader>
 
             <CardContent className="space-y-6">
@@ -204,38 +252,66 @@ function Profile() {
                   </p>
 
                   <p className="mt-1 text-sm font-medium">
-                    Full Stack Developer
+                    {user?.title || "Not provided"}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium">
-                  About
-                </p>
+                <p className="text-sm font-medium">About</p>
 
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Computer Science graduate interested in
+                  {/* Computer Science graduate interested in
                   building modern web applications using
                   React, Node.js, Express and database
-                  technologies.
+                  technologies. */}
+                  {user?.about || "Not provided"}
                 </p>
               </div>
 
               <div>
-                <p className="text-sm font-medium">
-                  Skills
-                </p>
+                <p className="text-sm font-medium">Skills</p>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {skills.map((skill) => (
-                    <Badge
-                      key={skill}
-                      variant="secondary"
-                    >
+                  {(user?.skills || []).map((skill) => (
+                    <Badge key={skill} variant="secondary">
                       {skill}
                     </Badge>
                   ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Education */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Education</CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              <div className="grid gap-6 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Degree</p>
+                  <p className="mt-1 text-sm font-medium">
+                    {user?.degree || "Not provided"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">Institution</p>
+                  <p className="mt-1 text-sm font-medium">
+                    {user?.institution || "Not provided"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Graduation Year
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {user?.graduationYear || "Not provided"}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -247,36 +323,35 @@ function Profile() {
           {/* Profile completion */}
           <Card>
             <CardHeader>
-              <CardTitle>
-                Profile Completion
-              </CardTitle>
+              <CardTitle>Profile Completion</CardTitle>
             </CardHeader>
 
             <CardContent>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Completed
-                </span>
+                <span className="text-sm text-muted-foreground">Completed</span>
 
                 <span className="text-sm font-semibold text-primary">
-                  80%
+                  {profileCompletion}%
                 </span>
               </div>
 
               <div
                 className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
                 role="progressbar"
-                aria-valuenow="80"
+                aria-valuenow={profileCompletion}
                 aria-valuemin="0"
                 aria-valuemax="100"
                 aria-label="Profile completion"
               >
-                <div className="h-full w-[80%] rounded-full bg-primary" />
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${profileCompletion}%` }}
+                />
               </div>
 
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                Complete your profile to improve your
-                chances of getting noticed by recruiters.
+                Complete your profile to improve your chances of getting noticed
+                by recruiters.
               </p>
             </CardContent>
           </Card>
@@ -284,9 +359,7 @@ function Profile() {
           {/* Resume */}
           <Card>
             <CardHeader>
-              <CardTitle>
-                Resume
-              </CardTitle>
+              <CardTitle>Resume</CardTitle>
             </CardHeader>
 
             <CardContent>
@@ -298,11 +371,19 @@ function Profile() {
 
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
-                      Riddhi_Mistry_Resume.pdf
+                      {resume?.fileName || "No resume uploaded"}
                     </p>
 
                     <p className="text-xs text-muted-foreground">
-                      Updated 2 days ago
+                      {resume?.updatedAt
+                        ? `Updated ${new Date(
+                            resume.updatedAt,
+                          ).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}`
+                        : "No resume uploaded"}
                     </p>
                   </div>
                 </div>

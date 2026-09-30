@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
   ShieldCheck,
@@ -6,7 +6,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Building2,
   CalendarDays,
   Pencil,
   Save,
@@ -27,29 +26,72 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-const initialProfile = {
-  name: "Riddhi Mistry",
-  email: "admin@hirehub.com",
-  phone: "+91 98765 43210",
-  location: "Gujarat, India",
-  department: "Platform Administration",
-  joinedDate: "January 2026",
-  about:
-    "Responsible for managing the HireHub platform, users, recruiters, jobs and overall platform operations.",
-};
-
 function AdminProfile() {
-  const [profile, setProfile] = useState(initialProfile);
-  const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState(initialProfile);
-  const [saving, setSaving] = useState(false);
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  const initials = profile.name
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const [profile, setProfile] = useState(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    location: "",
+    about: "",
+  });
+
+  const [editMode, setEditMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // ========================================
+  // Fetch Profile
+  // ========================================
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${BASE_URL}/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to fetch profile");
+      }
+
+      const user = result.data;
+
+      setProfile(user);
+
+      setFormData({
+        name: user.name || "",
+        email: user.auth?.email || "",
+        phone: user.phone || "",
+        location: user.location || "",
+        about: user.about || "",
+      });
+    } catch (error) {
+      console.error("Fetch admin profile error:", error);
+      setError(error.message || "Failed to fetch profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+     fetchProfile();
+  }, []);
+
+  // ========================================
+  // Helpers
+  // ========================================
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({
@@ -58,15 +100,62 @@ function AdminProfile() {
     }));
   };
 
+  const getInitials = (name = "") => {
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  const formatJoinedDate = (date) => {
+    if (!date) {
+      return "-";
+    }
+
+    return new Date(date).toLocaleDateString("en-IN", {
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  // ========================================
+  // Edit
+  // ========================================
+
   const handleEdit = () => {
-    setFormData(profile);
+    setFormData({
+      name: profile.name || "",
+      email: profile.auth?.email || "",
+      phone: profile.phone || "",
+      location: profile.location || "",
+      about: profile.about || "",
+    });
+
     setEditMode(true);
   };
 
+  // ========================================
+  // Cancel
+  // ========================================
+
   const handleCancel = () => {
-    setFormData(profile);
+    setFormData({
+      name: profile.name || "",
+      email: profile.auth?.email || "",
+      phone: profile.phone || "",
+      location: profile.location || "",
+      about: profile.about || "",
+    });
+
     setEditMode(false);
   };
+
+  // ========================================
+  // Save Profile
+  // ========================================
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -74,27 +163,116 @@ function AdminProfile() {
       return;
     }
 
-    if (!formData.email.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-
     setSaving(true);
 
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000)
-    );
+    try {
+      const token = localStorage.getItem("token");
 
-    setProfile(formData);
-    setEditMode(false);
-    setSaving(false);
+      const response = await fetch(`${BASE_URL}/users/profile`, {
+        method: "PATCH",
 
-    toast.success("Profile updated successfully");
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          phone: formData.phone.trim(),
+          location: formData.location.trim(),
+          about: formData.about.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to update profile");
+      }
+
+      setProfile(result.data);
+
+      setFormData({
+        name: result.data.name || "",
+        email: result.data.auth?.email || "",
+        phone: result.data.phone || "",
+        location: result.data.location || "",
+        about: result.data.about || "",
+      });
+
+      setEditMode(false);
+
+      toast.success(
+        result.message || "Profile updated successfully"
+      );
+    } catch (error) {
+      console.error("Update admin profile error:", error);
+
+      toast.error(
+        error.message || "Failed to update profile"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // ========================================
+  // Loading
+  // ========================================
+
+  if (loading) {
+    return (
+      <div className="mx-auto flex min-h-[400px] w-full max-w-5xl items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+
+          <p className="mt-3 text-sm text-muted-foreground">
+            Loading profile...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ========================================
+  // Error
+  // ========================================
+
+  if (error || !profile) {
+    return (
+      <div className="mx-auto w-full max-w-5xl">
+        <Card className="border-destructive/30">
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <p className="text-sm text-destructive">
+              {error || "Profile not found"}
+            </p>
+
+            <Button
+              variant="outline"
+              onClick={fetchProfile}
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const initials = getInitials(profile.name);
+
+  const roleName =
+    profile.role?.roleName || "ADMIN";
+
+  const accountStatus =
+    profile.status || "ACTIVE";
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header */}
+      {/* ========================================
+          Header
+      ======================================== */}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -134,7 +312,10 @@ function AdminProfile() {
         )}
       </div>
 
-      {/* Profile Header */}
+      {/* ========================================
+          Profile Header
+      ======================================== */}
+
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
@@ -148,26 +329,23 @@ function AdminProfile() {
                   {profile.name}
                 </h2>
 
-                <Badge>
+                <Badge variant="outline">
                   <ShieldCheck className="mr-1 h-3 w-3" />
-                  ADMIN
+                  {roleName}
                 </Badge>
               </div>
 
               <p className="mt-1 text-muted-foreground">
-                {profile.email}
+                {profile.auth?.email || "-"}
               </p>
 
               <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Building2 className="h-4 w-4" />
-                  {profile.department}
-                </span>
-
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {profile.location}
-                </span>
+                {profile.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {profile.location}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -177,10 +355,16 @@ function AdminProfile() {
               </p>
 
               <div className="mt-1 flex items-center justify-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    accountStatus === "ACTIVE"
+                      ? "bg-green-500"
+                      : "bg-red-500"
+                  }`}
+                />
 
                 <span className="text-sm font-medium">
-                  Active
+                  {accountStatus}
                 </span>
               </div>
             </div>
@@ -188,7 +372,10 @@ function AdminProfile() {
         </CardContent>
       </Card>
 
-      {/* Personal Information */}
+      {/* ========================================
+          Personal Information
+      ======================================== */}
+
       <Card>
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
@@ -200,6 +387,8 @@ function AdminProfile() {
 
         <CardContent className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
+            {/* Name */}
+
             <div className="space-y-2">
               <Label htmlFor="name">
                 Full Name
@@ -209,16 +398,17 @@ function AdminProfile() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     handleChange(
                       "name",
-                      e.target.value
+                      event.target.value
                     )
                   }
                 />
               ) : (
                 <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
                   <User className="h-4 w-4 text-muted-foreground" />
+
                   <span className="text-sm">
                     {profile.name}
                   </span>
@@ -226,32 +416,29 @@ function AdminProfile() {
               )}
             </div>
 
+            {/* Email */}
+
             <div className="space-y-2">
               <Label htmlFor="email">
                 Email Address
               </Label>
 
-              {editMode ? (
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    handleChange(
-                      "email",
-                      e.target.value
-                    )
-                  }
-                />
-              ) : (
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {profile.email}
-                  </span>
-                </div>
+              <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+
+                <span className="text-sm">
+                  {profile.auth?.email || "-"}
+                </span>
+              </div>
+
+              {editMode && (
+                <p className="text-xs text-muted-foreground">
+                  Email address cannot be changed here.
+                </p>
               )}
             </div>
+
+            {/* Phone */}
 
             <div className="space-y-2">
               <Label htmlFor="phone">
@@ -262,22 +449,25 @@ function AdminProfile() {
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     handleChange(
                       "phone",
-                      e.target.value
+                      event.target.value
                     )
                   }
                 />
               ) : (
                 <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
                   <Phone className="h-4 w-4 text-muted-foreground" />
+
                   <span className="text-sm">
-                    {profile.phone}
+                    {profile.phone || "-"}
                   </span>
                 </div>
               )}
             </div>
+
+            {/* Location */}
 
             <div className="space-y-2">
               <Label htmlFor="location">
@@ -288,18 +478,19 @@ function AdminProfile() {
                 <Input
                   id="location"
                   value={formData.location}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     handleChange(
                       "location",
-                      e.target.value
+                      event.target.value
                     )
                   }
                 />
               ) : (
                 <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
+
                   <span className="text-sm">
-                    {profile.location}
+                    {profile.location || "-"}
                   </span>
                 </div>
               )}
@@ -307,6 +498,8 @@ function AdminProfile() {
           </div>
 
           <Separator />
+
+          {/* About */}
 
           <div className="space-y-2">
             <Label htmlFor="about">
@@ -317,10 +510,10 @@ function AdminProfile() {
               <Textarea
                 id="about"
                 value={formData.about}
-                onChange={(e) =>
+                onChange={(event) =>
                   handleChange(
                     "about",
-                    e.target.value
+                    event.target.value
                   )
                 }
                 rows={4}
@@ -328,14 +521,17 @@ function AdminProfile() {
               />
             ) : (
               <p className="rounded-lg border bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
-                {profile.about}
+                {profile.about || "No information provided."}
               </p>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Administrator Information */}
+      {/* ========================================
+          Administrator Information
+      ======================================== */}
+
       <Card>
         <CardHeader>
           <CardTitle>Administrator Information</CardTitle>
@@ -347,28 +543,22 @@ function AdminProfile() {
 
         <CardContent>
           <div className="grid gap-6 sm:grid-cols-2">
+            {/* Role */}
+
             <div>
               <p className="text-sm text-muted-foreground">
                 Role
               </p>
 
               <div className="mt-2">
-                <Badge>
+                <Badge variant="outline">
                   <ShieldCheck className="mr-1 h-3 w-3" />
-                  Administrator
+                  {roleName}
                 </Badge>
               </div>
             </div>
 
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Department
-              </p>
-
-              <p className="mt-2 font-medium">
-                {profile.department}
-              </p>
-            </div>
+            {/* Joined */}
 
             <div>
               <p className="text-sm text-muted-foreground">
@@ -379,10 +569,12 @@ function AdminProfile() {
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
 
                 <span className="font-medium">
-                  {profile.joinedDate}
+                  {formatJoinedDate(profile.createdAt)}
                 </span>
               </div>
             </div>
+
+            {/* Account Status */}
 
             <div>
               <p className="text-sm text-muted-foreground">
@@ -390,10 +582,16 @@ function AdminProfile() {
               </p>
 
               <div className="mt-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    accountStatus === "ACTIVE"
+                      ? "bg-green-500"
+                      : "bg-red-500"
+                  }`}
+                />
 
                 <span className="font-medium">
-                  Active
+                  {accountStatus}
                 </span>
               </div>
             </div>
@@ -401,7 +599,10 @@ function AdminProfile() {
         </CardContent>
       </Card>
 
-      {/* Permissions */}
+      {/* ========================================
+          Permissions
+      ======================================== */}
+
       <Card>
         <CardHeader>
           <CardTitle>Administrator Permissions</CardTitle>
